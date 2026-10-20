@@ -32,20 +32,19 @@ Each site needs `slug`, `title`, `deploy`, `subdomain`, and `visibility`. `enabl
 
 Slugs, subdomains, and deploy paths are unique. The hub deploy path counts as used. Subdomains `auth` and `www` are reserved. Titles are 1–80 characters and cannot contain a newline or `<` or `>`. Relative paths are resolved from the directory that holds `sites.toml`. Paths that contain spaces, quotes, or shell metacharacters are rejected so they can be pasted into a Caddyfile safely.
 
-`visibility` is one of four values:
+`visibility` is one of three values:
 
 | Value | Hub list | Visit |
 | --- | --- | --- |
 | `public` | Shown to everyone | Open |
-| `hidden` | Shown only to a signed-in admin or to a signed-in address that is on any allowlist | Sign-in required |
-| `private` | Shown to everyone | Sign-in required |
-| `private-listed` | Shown to everyone | Sign-in required, and the entry page is the sign-in prompt |
+| `private` | Shown only to a signed-in admin, or to a signed-in address on that site's own allowlist | Sign-in required |
+| `private-listed` | Shown to everyone | Sign-in required |
 
-Older manifests can still say `public = true` or `public = false`. `public = false` with `unlisted = true` is `hidden`. `public = false` without `unlisted` is `private-listed`. Do not set `visibility` and `public` on the same site.
+Older manifests can still say `public = true` or `public = false`. `public = true` is `public`. `public = false` is `private-listed`. `public = false` with `unlisted = true` is `private`. Do not set `visibility` and `public` on the same site.
 
 `spa = true` adds `try_files {path} /index.html` so a client route still returns the site. `enabled = false` omits the site from Caddy and from the hub.
 
-The apex is proxied to ship-rs, which builds the list for that request. Anonymous visitors see `public`, `private`, and `private-listed` sites. A signed-in admin, or a signed-in address on any site's allowlist, also sees `hidden` sites. The list does not print allowlists or admin addresses. Disabled sites are omitted. `generate` still writes an anonymous copy of the list for the preview address.
+The apex is proxied to ship-rs, which builds the list for that request. Anonymous visitors see `public` and `private-listed` sites. A signed-in admin sees every `private` site. A signed-in address sees a `private` site only when that address is on that site's allowlist. The list does not print allowlists or admin addresses. Disabled sites are omitted. `generate` still writes an anonymous copy of the list for the preview address.
 
 ## Add a site
 

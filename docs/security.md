@@ -8,7 +8,7 @@ ship-rs's job is to keep anonymous and unlisted accounts out of protected sites,
 
 - The host is not an enabled site: 403.
 - The site's visibility is `public`: 200, and no identity header.
-- The site is `hidden`, `private`, or `private-listed` and the cookie is missing, expired, or does not open: 401.
+- The site is `private` or `private-listed` and the cookie is missing, expired, or does not open: 401.
 - The email is on that site's allowlist, or is an admin: 200 and `X-Ship-Rs-Email`.
 - Otherwise: 403.
 

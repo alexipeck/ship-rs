@@ -872,7 +872,7 @@ allow = ["Guest@Example.com"]
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn hub_filters_hidden_sites() {
+    async fn hub_filters_private_sites() {
         let body = r#"
 base_domain = "example.com"
 tls = "internal"
@@ -912,7 +912,7 @@ slug = "vault"
 title = "Vault"
 deploy = "vault"
 subdomain = "vault"
-visibility = "hidden"
+visibility = "private"
 allow = ["owner@example.com"]
 "#;
         let (_dir, path) = write_config(body);
@@ -929,12 +929,11 @@ allow = ["owner@example.com"]
         assert_eq!(status, StatusCode::OK);
         assert!(body.contains("Public hello"), "{body}");
         assert!(body.contains("Protected hello"), "{body}");
-        assert!(body.contains("Draft"), "{body}");
-        assert!(body.contains(">Private<"), "{body}");
         assert!(body.contains("Sign-in required"), "{body}");
+        assert!(!body.contains("Draft"), "{body}");
         assert!(!body.contains("Vault"), "{body}");
 
-        let mut as_guest = Request::builder()
+        let as_guest = Request::builder()
             .method("GET")
             .uri("/")
             .header("x-forwarded-host", "example.com")
@@ -942,16 +941,30 @@ allow = ["owner@example.com"]
             .body(Body::empty())
             .unwrap();
         let (_, _, body) = do_req(svc.router(), as_guest).await;
+        assert!(body.contains("Draft"), "{body}");
+        assert!(!body.contains("Vault"), "{body}");
+
+        let owner = mint(&svc, "owner@example.com", identity::PROVIDER_GITHUB, None);
+        let as_owner = Request::builder()
+            .method("GET")
+            .uri("/")
+            .header("x-forwarded-host", "example.com")
+            .header("cookie", format!("{}={owner}", session::SESSION_COOKIE_NAME))
+            .body(Body::empty())
+            .unwrap();
+        let (_, _, body) = do_req(svc.router(), as_owner).await;
+        assert!(body.contains("Draft"), "{body}");
         assert!(body.contains("Vault"), "{body}");
 
-        as_guest = Request::builder()
+        let as_stranger = Request::builder()
             .method("GET")
             .uri("/")
             .header("x-forwarded-host", "example.com")
             .header("cookie", format!("{}={stranger}", session::SESSION_COOKIE_NAME))
             .body(Body::empty())
             .unwrap();
-        let (_, _, body) = do_req(svc.router(), as_guest).await;
+        let (_, _, body) = do_req(svc.router(), as_stranger).await;
+        assert!(!body.contains("Draft"), "{body}");
         assert!(!body.contains("Vault"), "{body}");
 
         let login = Request::builder().method("GET").uri("/").body(Body::empty()).unwrap();
