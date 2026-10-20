@@ -254,6 +254,6 @@ if [ "$status" -eq 0 ]; then
   run_ssh "$target" "rm -rf '$remote'"
 else
   echo "install failed; files remain on the server in $remote" >&2
-  echo "If pacman said it could not lock the database and no package manager is running, remove /var/lib/pacman/db.lck on the server and run this script again." >&2
+  echo "If pacman could not lock its database, wait until the other package manager finishes and run this script again." >&2
 fi
 exit "$status"
