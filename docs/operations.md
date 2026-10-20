@@ -100,6 +100,8 @@ Sign-out is `POST /logout`. The `Origin` or `Referer` must be HTTPS on the apex 
 
 ## Updates
 
+On the server, after a local release build:
+
 ```sh
 sudo pacman -Syu caddy rsync
 rustup update stable
@@ -110,7 +112,20 @@ sudo systemctl restart ship-rs
 sudo ship-rs deploy --config /etc/ship-rs/sites.toml --reload
 ```
 
-Restart `ship-rs` when the binary or the env file changes. Reload Caddy when the Caddyfile changes. An allowlist-only edit needs neither.
+From a checkout on another machine, replace only the binary. This uses the same ELF search and the same Arch and glibc checks as a full install, then uploads that one file. It installs it to `/usr/local/bin/ship-rs` (mode `0755`) by writing a temporary file in that directory and renaming it. Root does that directly; any other SSH user goes through sudo. It then restarts `ship-rs.service` and checks `curl -fsS http://127.0.0.1:8091/healthz` on the server. It does not change `sites.toml`, `ship-rs.env`, site files, the systemd unit, or packages.
+
+```sh
+scripts/deploy-remote.sh -b user@your-server
+scripts/deploy-remote.sh --binary-only -i ~/.ssh/id_ed25519 user@your-server
+```
+
+`--regen` is allowed only with `--binary-only`. After the health check it runs `ship-rs generate --config /etc/ship-rs/sites.toml` and `systemctl reload caddy`. Use it when the new binary writes a different Caddyfile. `generate` also refreshes the anonymous hub page it writes for the preview address. It does not edit site trees.
+
+```sh
+scripts/deploy-remote.sh -b --regen user@your-server
+```
+
+`SHIP_YES=1` skips the confirmation prompt. Restart `ship-rs` when the binary or the env file changes. Reload Caddy when the Caddyfile changes. An allowlist-only edit needs neither.
 
 To rotate the cookie key, set `SHIP_COOKIE_KEY_PREVIOUS` to the old value, put the new value in `SHIP_COOKIE_KEY`, and restart. Existing sessions still open. New sessions are sealed with the new key. Remove the previous key on a later restart.
 

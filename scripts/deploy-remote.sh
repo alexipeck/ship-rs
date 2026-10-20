@@ -3,7 +3,7 @@ set -eu
 
 usage() {
   cat <<'EOF'
-Usage: scripts/deploy-remote.sh [-p PORT] [-i IDENTITY] user@host
+Usage: scripts/deploy-remote.sh [-p PORT] [-i IDENTITY] [-b] [--regen] user@host
 
 Run this from a checkout of the repo, on Linux, macOS, WSL, or Git Bash.
 It SSHes to an Arch Linux server, installs the Linux ship-rs binary, the
@@ -13,9 +13,15 @@ not changed. Caddy is started only when base_domain is not example.com.
 
 OpenSSH must be on your PATH. Pass -i when the key is not your SSH default.
 
-  -p, --port       SSH port
-  -i, --identity   SSH private key
-  -h, --help       Show this help
+  -p, --port         SSH port
+  -i, --identity     SSH private key
+  -b, --binary-only  Replace /usr/local/bin/ship-rs and restart ship-rs.service.
+                     Does not change sites.toml, ship-rs.env, site files, the
+                     systemd unit, or packages.
+  --regen            With --binary-only, after healthz succeeds, run
+                     ship-rs generate --config /etc/ship-rs/sites.toml and
+                     systemctl reload caddy.
+  -h, --help         Show this help
 
 A binary built with cargo on Windows is ship-rs.exe and cannot run on the
 VPS. The script uploads, in order, the first ELF it finds:
@@ -30,11 +36,21 @@ EOF
 
 port=""
 identity=""
+binary_only=0
+regen=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -h|--help)
       usage
       exit 0
+      ;;
+    -b|--binary-only)
+      binary_only=1
+      shift
+      ;;
+    --regen)
+      regen=1
+      shift
       ;;
     -p|--port)
       if [ -z "${2:-}" ]; then
@@ -66,6 +82,11 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+if [ "$regen" -eq 1 ] && [ "$binary_only" -ne 1 ]; then
+  echo "--regen requires --binary-only" >&2
+  exit 2
+fi
 
 target=${1:-}
 if [ -z "$target" ] || [ "$#" -ne 1 ]; then
@@ -179,6 +200,70 @@ run_ssh() {
   fi
 }
 
+install_binary_only() {
+  remote=$(run_ssh "$target" 'd=$(mktemp -d /tmp/ship-rs-bootstrap.XXXXXX); printf "SHIP_DIR %s\n" "$d"' | awk '$1=="SHIP_DIR" { print $2 }')
+  case "$remote" in
+    /tmp/ship-rs-bootstrap.*) ;;
+    *)
+      echo "unexpected remote directory: $remote" >&2
+      exit 1
+      ;;
+  esac
+
+  echo "Uploading binary to $remote"
+  if ! run_ssh "$target" "cat > '$remote/ship-rs'" < "$binary"; then
+    echo "upload failed; the file remains on the server in $remote" >&2
+    exit 1
+  fi
+
+  # The stage file is renamed onto ship-rs. trap stores that temporary path,
+  # so a later failure cannot delete the installed binary.
+  remote_script='set -eu
+src=$1
+regen=$2
+dest=/usr/local/bin/ship-rs
+stage=$(mktemp "$dest.XXXXXX")
+trap "rm -f $stage" EXIT
+install -m 0755 "$src" "$stage"
+mv -f "$stage" "$dest"
+trap - EXIT
+systemctl restart ship-rs.service
+n=0
+while [ "$n" -lt 30 ]; do
+  if curl -fsS http://127.0.0.1:8091/healthz >/dev/null; then
+    break
+  fi
+  n=$((n + 1))
+  sleep 0.2
+done
+curl -fsS http://127.0.0.1:8091/healthz
+if [ "$regen" = 1 ]; then
+  PATH="/usr/local/bin:$PATH"
+  ship-rs generate --config /etc/ship-rs/sites.toml
+  systemctl reload caddy
+fi
+'
+
+  status=0
+  if [ "$remote_uid" -eq 0 ]; then
+    run_ssh "$target" "sh -c '$remote_script' sh '$remote/ship-rs' '$regen'" || status=$?
+  else
+    run_ssh -t "$target" "sudo sh -c '$remote_script' sh '$remote/ship-rs' '$regen'" || status=$?
+  fi
+
+  if [ "$status" -eq 0 ]; then
+    run_ssh "$target" "rm -rf '$remote'"
+    echo "Updated /usr/local/bin/ship-rs and restarted ship-rs.service."
+    if [ "$regen" -eq 1 ]; then
+      echo "Regenerated the Caddyfile and reloaded Caddy."
+    fi
+  else
+    echo "binary update failed; the uploaded file remains on the server in $remote" >&2
+    echo "/usr/local/bin/ship-rs may already be the new binary. sites.toml, ship-rs.env, site files, and the systemd unit were not changed." >&2
+  fi
+  exit "$status"
+}
+
 echo "Checking $target"
 remote_info=$(run_ssh "$target" 'printf "machine %s\n" "$(uname -m)"; . /etc/os-release; printf "os %s\n" "$ID"; printf "uid %s\n" "$(id -u)"; if command -v pacman >/dev/null 2>&1; then echo pacman yes; else echo pacman no; fi; ldd --version | awk "NR==1 { printf \"glibc %s\\n\", \$NF }"')
 machine=$(printf '%s\n' "$remote_info" | awk '$1=="machine" { print $2 }')
@@ -206,7 +291,13 @@ if ! version_at_least 2.39 "$remote_glibc"; then
 fi
 
 if [ -t 0 ]; then
-  printf 'Install ship-rs on %s? [y/N] ' "$target"
+  if [ "$binary_only" -eq 1 ] && [ "$regen" -eq 1 ]; then
+    printf 'Replace the ship-rs binary and regenerate the Caddyfile on %s? [y/N] ' "$target"
+  elif [ "$binary_only" -eq 1 ]; then
+    printf 'Replace the ship-rs binary on %s? [y/N] ' "$target"
+  else
+    printf 'Install ship-rs on %s? [y/N] ' "$target"
+  fi
   read -r ans || exit 1
   case "$ans" in
     y|Y|yes|YES) ;;
@@ -216,8 +307,16 @@ if [ -t 0 ]; then
       ;;
   esac
 elif [ "${SHIP_YES:-}" != "1" ]; then
-  echo "set SHIP_YES=1 to install without a prompt" >&2
+  if [ "$binary_only" -eq 1 ]; then
+    echo "set SHIP_YES=1 to update the binary without a prompt" >&2
+  else
+    echo "set SHIP_YES=1 to install without a prompt" >&2
+  fi
   exit 2
+fi
+
+if [ "$binary_only" -eq 1 ]; then
+  install_binary_only
 fi
 
 remote=$(run_ssh "$target" 'd=$(mktemp -d /tmp/ship-rs-bootstrap.XXXXXX); printf "SHIP_DIR %s\n" "$d"' | awk '$1=="SHIP_DIR" { print $2 }')
