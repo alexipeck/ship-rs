@@ -159,9 +159,10 @@ fn write_header_up_strip(b: &mut String, indent: &str) {
 }
 
 fn write_forwarded_host(b: &mut String, indent: &str) {
-    let _ = writeln!(b, "{indent}header_up -X-Forwarded-Host");
+    // Caddy runs header_up deletes after sets, so a delete of either name
+    // would drop the value set on the next line. Setting the header replaces
+    // a client-supplied one.
     let _ = writeln!(b, "{indent}header_up X-Forwarded-Host {{http.request.host}}");
-    let _ = writeln!(b, "{indent}header_up -X-Forwarded-Proto");
     let _ = writeln!(b, "{indent}header_up X-Forwarded-Proto {{http.request.scheme}}");
 }
 
@@ -285,6 +286,16 @@ enabled = false
         assert!(file.contains("local_certs"));
         assert!(file.contains("https_port 18443"));
         assert!(file.contains("admin off"));
+        assert_eq!(file.matches("header_up X-Forwarded-Host {http.request.host}").count(), 2, "{file}");
+        assert_eq!(file.matches("header_up X-Forwarded-Proto {http.request.scheme}").count(), 2, "{file}");
+        assert!(!file.contains("header_up -X-Forwarded-Host"), "{file}");
+        assert!(!file.contains("header_up -X-Forwarded-Proto"), "{file}");
+        let apex = between(&file, "\nexample.com {", "\nwww.example.com {");
+        assert!(apex.contains("reverse_proxy 127.0.0.1:8091"), "{apex}");
+        assert!(apex.contains("header_up X-Forwarded-Host {http.request.host}"), "{apex}");
+        assert!(apex.contains("header_up X-Forwarded-Proto {http.request.scheme}"), "{apex}");
+        assert!(!apex.contains("header_up -X-Forwarded-Host"), "{apex}");
+        assert!(!apex.contains("header_up -X-Forwarded-Proto"), "{apex}");
         let hub = hub_html(&cfg);
         assert!(hub.contains("Public hello"));
         assert!(hub.contains("Protected hello"));

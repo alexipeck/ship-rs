@@ -110,6 +110,13 @@ async fn caddy_forward_auth_and_mocked_oauth() {
     assert_eq!(status, 200, "{public_body}\n{}", logs(&stack));
     assert!(public_body.contains("Public hello"), "{public_body}");
 
+    let (hub_status, hub_body) = text_retry(&client, &stack, || client.get(format!("https://example.com:{HTTPS_PORT}/"))).await;
+    assert_eq!(hub_status, 200, "{hub_body}\n{}", logs(&stack));
+    assert!(hub_body.contains("<h1>Example sites</h1>"), "{hub_body}\n{}", logs(&stack));
+    assert!(hub_body.contains("Public hello"), "{hub_body}");
+    assert!(hub_body.contains("Protected hello"), "{hub_body}");
+    assert!(!hub_body.contains("<h1>Sign in</h1>"), "{hub_body}");
+
     let (status, spa_body) = text_retry(&client, &stack, || client.get(format!("https://spa.example.com:{HTTPS_PORT}/tour"))).await;
     assert_eq!(status, 200, "{spa_body}\n{}", logs(&stack));
     assert!(spa_body.contains("SPA demo"), "{spa_body}");
