@@ -21,7 +21,7 @@ pub(crate) struct LoginView<'a> {
 }
 
 pub(crate) fn login_page(v: &LoginView<'_>) -> String {
-    let mut body = String::from("<p class=\"mark\">Sitegate</p>\n<h1>Sign in</h1>\n");
+    let mut body = String::from("<p class=\"mark\">ship-rs</p>\n<h1>Sign in</h1>\n");
     if v.bad_return {
         body.push_str("<p class=\"fine\">The return address is not allowed.</p>\n");
     }
@@ -47,7 +47,7 @@ pub(crate) fn login_page(v: &LoginView<'_>) -> String {
 
 pub(crate) fn sign_in_page(title: &str, url: &str) -> String {
     let body = format!(
-        "<p class=\"mark\">Sitegate</p>\n<h1>Sign in required</h1>\n<div class=\"card\">\n<p>{} is only open to invited accounts.</p>\n<p class=\"fine\">You are not signed in.</p>\n<div class=\"actions\">\n<a class=\"btn\" href=\"{}\">Sign in</a>\n</div>\n</div>\n",
+        "<p class=\"mark\">ship-rs</p>\n<h1>Sign in required</h1>\n<div class=\"card\">\n<p>{} is only open to invited accounts.</p>\n<p class=\"fine\">You are not signed in.</p>\n<div class=\"actions\">\n<a class=\"btn\" href=\"{}\">Sign in</a>\n</div>\n</div>\n",
         esc(title),
         esc(url)
     );
@@ -65,7 +65,7 @@ pub(crate) struct DenyView<'a> {
 
 pub(crate) fn deny_page(v: &DenyView<'_>) -> String {
     let body = format!(
-        "<p class=\"mark\">Sitegate</p>\n<h1>Access denied</h1>\n<div class=\"card\">\n<p class=\"who\">Signed in as <strong>{}</strong> via {}.</p>\n<p>That account is not on the allowlist for {}.</p>\n<div class=\"actions\">\n<form method=\"post\" action=\"{}\">\n<input type=\"hidden\" name=\"return\" value=\"{}\">\n<button type=\"submit\">Sign out</button>\n</form>\n<form method=\"post\" action=\"{}\">\n<input type=\"hidden\" name=\"return\" value=\"{}\">\n<button class=\"secondary\" type=\"submit\">Use a different account</button>\n</form>\n</div>\n</div>\n",
+        "<p class=\"mark\">ship-rs</p>\n<h1>Access denied</h1>\n<div class=\"card\">\n<p class=\"who\">Signed in as <strong>{}</strong> via {}.</p>\n<p>That account is not on the allowlist for {}.</p>\n<div class=\"actions\">\n<form method=\"post\" action=\"{}\">\n<input type=\"hidden\" name=\"return\" value=\"{}\">\n<button type=\"submit\">Sign out</button>\n</form>\n<form method=\"post\" action=\"{}\">\n<input type=\"hidden\" name=\"return\" value=\"{}\">\n<button class=\"secondary\" type=\"submit\">Use a different account</button>\n</form>\n</div>\n</div>\n",
         esc(v.email),
         esc(v.provider),
         esc(v.title),
@@ -78,7 +78,7 @@ pub(crate) fn deny_page(v: &DenyView<'_>) -> String {
 }
 
 pub(crate) fn message_page(title: &str, message: &str) -> String {
-    let body = format!("<p class=\"mark\">Sitegate</p>\n<h1>{}</h1>\n<div class=\"card\">\n<p>{}</p>\n</div>\n", esc(title), esc(message));
+    let body = format!("<p class=\"mark\">ship-rs</p>\n<h1>{}</h1>\n<div class=\"card\">\n<p>{}</p>\n</div>\n", esc(title), esc(message));
     shell(title, &body)
 }
 

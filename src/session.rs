@@ -8,8 +8,8 @@ use subtle::ConstantTimeEq;
 
 use crate::identity;
 
-pub const SESSION_COOKIE_NAME: &str = "sitegate_session";
-pub const OAUTH_COOKIE_NAME: &str = "__Host-sitegate_oauth";
+pub const SESSION_COOKIE_NAME: &str = "ship-rs_session";
+pub const OAUTH_COOKIE_NAME: &str = "__Host-ship-rs_oauth";
 
 const OAUTH_TTL: Duration = Duration::from_secs(10 * 60);
 const MAX_SEAL_TTL: Duration = Duration::from_secs(8 * 24 * 60 * 60);

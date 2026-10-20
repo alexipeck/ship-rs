@@ -1,14 +1,14 @@
 # Operations
 
-Every command takes the installation manifest. The binary does not assume a path except the systemd unit, which passes `/etc/sitegate/sites.toml`.
+Every command takes the installation manifest. The binary does not assume a path except the systemd unit, which passes `/etc/ship-rs/sites.toml`.
 
 ```sh
-sitegate validate --config /etc/sitegate/sites.toml
-sitegate generate --config /etc/sitegate/sites.toml
-sitegate deploy --config /etc/sitegate/sites.toml --reload
+ship-rs validate --config /etc/ship-rs/sites.toml
+ship-rs generate --config /etc/ship-rs/sites.toml
+ship-rs deploy --config /etc/ship-rs/sites.toml --reload
 ```
 
-`SITEGATE_CONFIG` fills in `--config` when the flag is absent. `--caddyfile` and `--hub` override the paths in the manifest for one invocation.
+`SHIP_RS_CONFIG` fills in `--config` when the flag is absent. `--caddyfile` and `--hub` override the paths in the manifest for one invocation.
 
 ## Manifest
 
@@ -20,7 +20,7 @@ sitegate deploy --config /etc/sitegate/sites.toml --reload
 | `acme_email` | Contact for Let's Encrypt when `tls = "auto"`. |
 | `tls` | `auto` (default) or `internal`. |
 | `http_port`, `https_port` | Default 80 and 443. They must differ. |
-| `auth_upstream` | Loopback address of `sitegate serve`. Default `127.0.0.1:8091`. |
+| `auth_upstream` | Loopback address of `ship-rs serve`. Default `127.0.0.1:8091`. |
 | `caddyfile` | Where `generate` writes the Caddyfile. |
 | `caddy_admin` | Empty uses Caddy's localhost admin port. `off` disables it. Any other value must be loopback. |
 | `preview_addr` | Optional loopback address. Caddy serves only the hub there, over HTTP. |
@@ -41,18 +41,18 @@ The hub is public. It lists enabled public sites, and enabled protected sites wi
 Put the files on the VPS, not in this repository. For a site that is already built:
 
 ```sh
-sudo install -d -m 0755 /srv/sitegate/sites/notes
-sudo rsync -a ./dist/ /srv/sitegate/sites/notes/
+sudo install -d -m 0755 /srv/ship-rs/sites/notes
+sudo rsync -a ./dist/ /srv/ship-rs/sites/notes/
 ```
 
-Or set `source` (and maybe `build`) and let `sitegate deploy` run the command and rsync. A protected tree:
+Or set `source` (and maybe `build`) and let `ship-rs deploy` run the command and rsync. A protected tree:
 
 ```toml
 [[sites]]
 slug = "notes"
 title = "Notes"
-source = "/srv/sitegate/src/notes"
-deploy = "/srv/sitegate/sites/notes"
+source = "/srv/ship-rs/src/notes"
+deploy = "/srv/ship-rs/sites/notes"
 subdomain = "notes"
 public = false
 allow = ["guest@example.com"]
@@ -61,7 +61,7 @@ allow = ["guest@example.com"]
 Then:
 
 ```sh
-sudo sitegate deploy --config /etc/sitegate/sites.toml --reload
+sudo ship-rs deploy --config /etc/ship-rs/sites.toml --reload
 ```
 
 Deploy runs `rsync -a --delete --safe-links` from `source/` to `deploy/`, then sets directories to `0755` and regular files to `0644` so the `caddy` user can read them. Symlinks are left alone. It rewrites the hub and the Caddyfile by writing a temporary file, syncing it, and renaming it into place.
@@ -74,7 +74,7 @@ Emails are stored lowercase. `guest@example.com` and `Guest@Example.com` are the
 
 Admins are in the top-level `admins` list. An admin may open every protected site, whether or not the site's `allow` list names them.
 
-Edit the list in `/etc/sitegate/sites.toml` and save. The running process re-reads the file. The next `/check` uses the new list. You do not reload Caddy and you do not restart `sitegate`. If the file is unreadable or invalid, the process logs the failure once for that content and keeps serving the last good manifest.
+Edit the list in `/etc/ship-rs/sites.toml` and save. The running process re-reads the file. The next `/check` uses the new list. You do not reload Caddy and you do not restart `ship-rs`. If the file is unreadable or invalid, the process logs the failure once for that content and keeps serving the last good manifest.
 
 Removing an email takes effect the same way: the next request from that account is denied.
 
@@ -95,13 +95,13 @@ sudo pacman -Syu caddy rsync
 rustup update stable
 git pull
 cargo build --release
-sudo install -m 0755 target/release/sitegate /usr/local/bin/sitegate
-sudo systemctl restart sitegate
-sudo sitegate deploy --config /etc/sitegate/sites.toml --reload
+sudo install -m 0755 target/release/ship-rs /usr/local/bin/ship-rs
+sudo systemctl restart ship-rs
+sudo ship-rs deploy --config /etc/ship-rs/sites.toml --reload
 ```
 
-Restart `sitegate` when the binary or the env file changes. Reload Caddy when the Caddyfile changes. An allowlist-only edit needs neither.
+Restart `ship-rs` when the binary or the env file changes. Reload Caddy when the Caddyfile changes. An allowlist-only edit needs neither.
 
-To rotate the cookie key, set `SITEGATE_COOKIE_KEY_PREVIOUS` to the old value, put the new value in `SITEGATE_COOKIE_KEY`, and restart. Existing sessions still open. New sessions are sealed with the new key. Remove the previous key on a later restart.
+To rotate the cookie key, set `SHIP_RS_COOKIE_KEY_PREVIOUS` to the old value, put the new value in `SHIP_RS_COOKIE_KEY`, and restart. Existing sessions still open. New sessions are sealed with the new key. Remove the previous key on a later restart.
 
-`sitegate validate` prints the domain, ports, auth origin, admin addresses, and each site's access mode and allowlist size. It does not print the allowlist itself.
+`ship-rs validate` prints the domain, ports, auth origin, admin addresses, and each site's access mode and allowlist size. It does not print the allowlist itself.

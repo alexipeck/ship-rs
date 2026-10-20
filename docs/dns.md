@@ -1,6 +1,6 @@
 # DNS
 
-Caddy obtains a certificate per hostname. Sitegate does not ask for a wildcard certificate, and it does not enable on-demand TLS. A wildcard DNS record is still useful: one name pattern covers the hub, `www`, `auth`, and every site you add later.
+Caddy obtains a certificate per hostname. ship-rs does not ask for a wildcard certificate, and it does not enable on-demand TLS. A wildcard DNS record is still useful: one name pattern covers the hub, `www`, `auth`, and every site you add later.
 
 For `example.com`, publish either of these:
 
@@ -21,4 +21,4 @@ dig +short hello.example.com
 
 Internal TLS (`tls = "internal"`) is for a laptop or a lab. Caddy then signs with its local CA, and the example manifest turns that on. A public VPS should use `tls = "auto"` and set `acme_email`.
 
-Adding a site does not require a new DNS record when `*.example.com` already points at the VPS. It does require a new certificate, which Caddy requests on the next reload after `sitegate deploy`.
+Adding a site does not require a new DNS record when `*.example.com` already points at the VPS. It does require a new certificate, which Caddy requests on the next reload after `ship-rs deploy`.

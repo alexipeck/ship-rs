@@ -21,38 +21,38 @@ fi
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 cd "$root"
 cargo build --release
-install -m 0755 target/release/sitegate /usr/local/bin/sitegate
+install -m 0755 target/release/ship-rs /usr/local/bin/ship-rs
 
-if ! id sitegate >/dev/null 2>&1; then
+if ! id ship-rs >/dev/null 2>&1; then
   nologin=$(command -v nologin || true)
   if [ -z "$nologin" ]; then
     nologin=/usr/bin/nologin
   fi
-  useradd --system --home-dir /var/lib/sitegate --create-home --shell "$nologin" sitegate
+  useradd --system --home-dir /var/lib/ship-rs --create-home --shell "$nologin" ship-rs
 fi
 
-install -d -m 0755 /etc/sitegate /srv/sitegate/hub /srv/sitegate/sites /srv/sitegate/src /var/lib/sitegate
+install -d -m 0755 /etc/ship-rs /srv/ship-rs/hub /srv/ship-rs/sites /srv/ship-rs/src /var/lib/ship-rs
 
-if [ ! -f /etc/sitegate/sites.toml ]; then
-  install -m 0644 deploy/sites.toml.example /etc/sitegate/sites.toml
+if [ ! -f /etc/ship-rs/sites.toml ]; then
+  install -m 0644 deploy/sites.toml.example /etc/ship-rs/sites.toml
 fi
 
-if [ ! -f /etc/sitegate/sitegate.env ]; then
+if [ ! -f /etc/ship-rs/ship-rs.env ]; then
   key=$(openssl rand -base64 32 | tr -d '\n')
   umask 077
   awk -v key="$key" '
     BEGIN { FS = OFS = "=" }
-    $1 == "SITEGATE_COOKIE_KEY" && $2 == "" { $2 = key }
+    $1 == "SHIP_RS_COOKIE_KEY" && $2 == "" { $2 = key }
     { print }
-  ' deploy/sitegate.env.example > /etc/sitegate/sitegate.env
-  chmod 0600 /etc/sitegate/sitegate.env
-  chown root:root /etc/sitegate/sitegate.env
+  ' deploy/ship-rs.env.example > /etc/ship-rs/ship-rs.env
+  chmod 0600 /etc/ship-rs/ship-rs.env
+  chown root:root /etc/ship-rs/ship-rs.env
 fi
 
-install -m 0644 deploy/sitegate.service /etc/systemd/system/sitegate.service
+install -m 0644 deploy/ship-rs.service /etc/systemd/system/ship-rs.service
 systemctl daemon-reload
 
-echo "installed $(/usr/local/bin/sitegate version)"
-echo "edit /etc/sitegate/sites.toml and /etc/sitegate/sitegate.env"
-echo "then: systemctl enable --now sitegate"
-echo "then: sitegate deploy --config /etc/sitegate/sites.toml --reload"
+echo "installed $(/usr/local/bin/ship-rs version)"
+echo "edit /etc/ship-rs/sites.toml and /etc/ship-rs/ship-rs.env"
+echo "then: systemctl enable --now ship-rs"
+echo "then: ship-rs deploy --config /etc/ship-rs/sites.toml --reload"

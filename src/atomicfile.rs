@@ -9,7 +9,7 @@ pub fn write(path: &Path, data: &[u8], mode: u32) -> std::io::Result<()> {
     let dir = path.parent().unwrap_or_else(|| Path::new("."));
     let mut rnd = [0u8; 8];
     rand::rngs::OsRng.fill_bytes(&mut rnd);
-    let tmp_path = dir.join(format!(".sitegate-{}", hex::encode(rnd)));
+    let tmp_path = dir.join(format!(".ship-rs-{}", hex::encode(rnd)));
     let result = (|| {
         let mut f = OpenOptions::new().write(true).create_new(true).open(&tmp_path)?;
         f.write_all(data)?;

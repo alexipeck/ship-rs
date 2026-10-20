@@ -61,8 +61,8 @@ mod tests {
     fn load_does_not_override() {
         let _g = LOCK.lock().unwrap();
         let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("sitegate.env");
-        fs::write(&path, "# comment\nexport KEEP=from-file\nSITEGATE_COOKIE_KEY=\"abc+def=\"\nHASH=value#not-comment\nQUOTED='two words'\n").unwrap();
+        let path = dir.path().join("ship-rs.env");
+        fs::write(&path, "# comment\nexport KEEP=from-file\nSHIP_RS_COOKIE_KEY=\"abc+def=\"\nHASH=value#not-comment\nQUOTED='two words'\n").unwrap();
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -70,18 +70,18 @@ mod tests {
         }
         unsafe {
             std::env::set_var("KEEP", "from-env");
-            std::env::remove_var("SITEGATE_COOKIE_KEY");
+            std::env::remove_var("SHIP_RS_COOKIE_KEY");
             std::env::remove_var("HASH");
             std::env::remove_var("QUOTED");
         }
         load(&path).unwrap();
         assert_eq!(std::env::var("KEEP").unwrap(), "from-env");
-        assert_eq!(std::env::var("SITEGATE_COOKIE_KEY").unwrap(), "abc+def=");
+        assert_eq!(std::env::var("SHIP_RS_COOKIE_KEY").unwrap(), "abc+def=");
         assert_eq!(std::env::var("HASH").unwrap(), "value#not-comment");
         assert_eq!(std::env::var("QUOTED").unwrap(), "two words");
         unsafe {
             std::env::remove_var("KEEP");
-            std::env::remove_var("SITEGATE_COOKIE_KEY");
+            std::env::remove_var("SHIP_RS_COOKIE_KEY");
             std::env::remove_var("HASH");
             std::env::remove_var("QUOTED");
         }

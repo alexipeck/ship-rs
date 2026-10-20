@@ -6,15 +6,15 @@ usage() {
 Usage: scripts/deploy-remote.sh [-p PORT] [-i IDENTITY] user@host
 
 Copy the committed x86_64-unknown-linux-gnu binary to an Arch Linux server
-and install the sitegate service, the three dummy example sites, and
-/etc/sitegate/sites.toml. An existing sites.toml or sitegate.env is left
+and install the ship-rs service, the three dummy example sites, and
+/etc/ship-rs/sites.toml. An existing sites.toml or ship-rs.env is left
 in place. The firewall is not changed, and Caddy is not started.
 
   -p, --port       SSH port
   -i, --identity   SSH private key
   -h, --help       Show this help
 
-Set SITEGATE_YES=1 to skip the confirmation prompt.
+Set SHIP_RS_YES=1 to skip the confirmation prompt.
 EOF
 }
 
@@ -64,8 +64,8 @@ if [ -z "$target" ] || [ "$#" -ne 1 ]; then
 fi
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-binary="$root/prebuilt/sitegate"
-checksum="$root/prebuilt/sitegate.sha256"
+binary="$root/prebuilt/ship-rs"
+checksum="$root/prebuilt/ship-rs.sha256"
 if [ ! -f "$binary" ] || [ ! -f "$checksum" ]; then
   echo "missing $binary" >&2
   echo "the prebuilt binary is part of this checkout" >&2
@@ -99,7 +99,7 @@ version_at_least() {
 expected=$(tr -d '[:space:]' < "$checksum")
 actual=$(file_sha256 "$binary")
 if [ "$expected" != "$actual" ]; then
-  echo "prebuilt/sitegate does not match prebuilt/sitegate.sha256" >&2
+  echo "prebuilt/ship-rs does not match prebuilt/ship-rs.sha256" >&2
   exit 1
 fi
 
@@ -142,7 +142,7 @@ if ! version_at_least 2.39 "$remote_glibc"; then
 fi
 
 if [ -t 0 ]; then
-  printf 'Install sitegate on %s? [y/N] ' "$target"
+  printf 'Install ship-rs on %s? [y/N] ' "$target"
   read -r ans || exit 1
   case "$ans" in
     y|Y|yes|YES) ;;
@@ -151,14 +151,14 @@ if [ -t 0 ]; then
       exit 1
       ;;
   esac
-elif [ "${SITEGATE_YES:-}" != "1" ]; then
-  echo "set SITEGATE_YES=1 to install without a prompt" >&2
+elif [ "${SHIP_RS_YES:-}" != "1" ]; then
+  echo "set SHIP_RS_YES=1 to install without a prompt" >&2
   exit 2
 fi
 
-remote=$(run_ssh "$target" 'd=$(mktemp -d /tmp/sitegate-bootstrap.XXXXXX); printf "SITEGATE_DIR %s\n" "$d"' | awk '$1=="SITEGATE_DIR" { print $2 }')
+remote=$(run_ssh "$target" 'd=$(mktemp -d /tmp/ship-rs-bootstrap.XXXXXX); printf "SHIP_RS_DIR %s\n" "$d"' | awk '$1=="SHIP_RS_DIR" { print $2 }')
 case "$remote" in
-  /tmp/sitegate-bootstrap.*) ;;
+  /tmp/ship-rs-bootstrap.*) ;;
   *)
     echo "unexpected remote directory: $remote" >&2
     exit 1
@@ -169,13 +169,13 @@ echo "Uploading binary and example sites to $remote"
 archive=$(mktemp)
 trap 'rm -f "$archive"' EXIT
 tar -C "$root" -czf "$archive" \
-  prebuilt/sitegate \
-  prebuilt/sitegate.sha256 \
+  prebuilt/ship-rs \
+  prebuilt/ship-rs.sha256 \
   examples/public-hello \
   examples/protected-hello \
   examples/spa-demo \
-  deploy/sitegate.service \
-  deploy/sitegate.env.example \
+  deploy/ship-rs.service \
+  deploy/ship-rs.env.example \
   deploy/sites.arch.toml \
   scripts/remote-bootstrap.sh
 run_ssh "$target" "tar -xzf - -C '$remote'" < "$archive"

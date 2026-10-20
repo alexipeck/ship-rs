@@ -204,7 +204,7 @@ impl Client {
             .get(&self.inner.github_emails)
             .header("Authorization", format!("Bearer {access}"))
             .header("Accept", "application/vnd.github+json")
-            .header("User-Agent", "sitegate")
+            .header("User-Agent", "ship-rs")
             .send()
             .await
             .map_err(|_| OauthError::Other("github emails request failed".into()))?;

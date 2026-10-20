@@ -300,7 +300,7 @@ async fn check(State(svc): State<Service>, headers: HeaderMap) -> Response {
             Response::builder()
                 .status(StatusCode::OK)
                 .header("cache-control", "no-store")
-                .header("x-sitegate-email", email)
+                .header("x-ship-rs-email", email)
                 .body(Body::empty())
                 .unwrap()
         }
@@ -625,12 +625,12 @@ allow = ["Guest@Example.com"]
                 }
             }
             match k {
-                "SITEGATE_COOKIE_KEY" => key.clone(),
-                "SITEGATE_GOOGLE_CLIENT_ID" => "test-google-id".into(),
-                "SITEGATE_GOOGLE_CLIENT_SECRET" => "test-google-secret".into(),
-                "SITEGATE_GITHUB_CLIENT_ID" => "test-github-id".into(),
-                "SITEGATE_GITHUB_CLIENT_SECRET" => "test-github-secret".into(),
-                "SITEGATE_ALLOW_UNSAFE_OAUTH_OVERRIDES" => "1".into(),
+                "SHIP_RS_COOKIE_KEY" => key.clone(),
+                "SHIP_RS_GOOGLE_CLIENT_ID" => "test-google-id".into(),
+                "SHIP_RS_GOOGLE_CLIENT_SECRET" => "test-google-secret".into(),
+                "SHIP_RS_GITHUB_CLIENT_ID" => "test-github-id".into(),
+                "SHIP_RS_GITHUB_CLIENT_SECRET" => "test-github-secret".into(),
+                "SHIP_RS_ALLOW_UNSAFE_OAUTH_OVERRIDES" => "1".into(),
                 _ => String::new(),
             }
         })
@@ -717,13 +717,13 @@ allow = ["Guest@Example.com"]
 
         let (status, headers, _) = do_req(svc.router(), check_req("notes.example.com", "/docs", &guest, "text/html", "document")).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(headers.get("x-sitegate-email").unwrap(), "guest@example.com");
+        assert_eq!(headers.get("x-ship-rs-email").unwrap(), "guest@example.com");
 
         let (status, _, _) = do_req(svc.router(), check_req("notes.example.com", "/docs", &admin, "text/html", "document")).await;
         assert_eq!(status, StatusCode::OK);
 
         let mut req = check_req("notes.example.com", "/docs", &stranger, "text/html", "document");
-        req.headers_mut().insert("x-sitegate-email", "owner@example.com".parse().unwrap());
+        req.headers_mut().insert("x-ship-rs-email", "owner@example.com".parse().unwrap());
         let (status, _, body) = do_req(svc.router(), req).await;
         assert_eq!(status, StatusCode::FORBIDDEN);
         assert!(body.contains("stranger@example.com"), "{body}");
@@ -760,7 +760,7 @@ allow = ["Guest@Example.com"]
 
         let (status, headers, _) = do_req(svc.router(), check_req("hello.example.com", "/", "", "text/html", "document")).await;
         assert_eq!(status, StatusCode::OK);
-        assert!(headers.get("x-sitegate-email").is_none());
+        assert!(headers.get("x-ship-rs-email").is_none());
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -782,7 +782,7 @@ allow = ["Guest@Example.com"]
         let idp = crate::testidp::Google::start("test-google-id", "test-google-secret", "Guest@Example.com", true).await;
         let (_dir, path) = write_config(sample_toml());
         let store = config::Store::open(&path).unwrap();
-        let svc = Service::new(store, test_secrets(&[("SITEGATE_OIDC_ISSUER", &idp.issuer)]));
+        let svc = Service::new(store, test_secrets(&[("SHIP_RS_OIDC_ISSUER", &idp.issuer)]));
         let ret = "https://notes.example.com/docs?x=1";
         let req = Request::builder()
             .uri(format!("/login/google?return={}", query_escape(ret)))
@@ -827,7 +827,7 @@ allow = ["Guest@Example.com"]
         }
         let (status, headers, _) = do_req(svc.router(), check_req("notes.example.com", "/docs?x=1", &session_cookie, "text/html", "document")).await;
         assert_eq!(status, StatusCode::OK);
-        assert_eq!(headers.get("x-sitegate-email").unwrap(), "guest@example.com");
+        assert_eq!(headers.get("x-ship-rs-email").unwrap(), "guest@example.com");
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

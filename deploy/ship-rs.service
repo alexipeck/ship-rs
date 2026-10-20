@@ -1,14 +1,14 @@
 [Unit]
-Description=Sitegate authentication service
+Description=ship-rs authentication service
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=sitegate
-Group=sitegate
-EnvironmentFile=/etc/sitegate/sitegate.env
-ExecStart=/usr/local/bin/sitegate serve --config /etc/sitegate/sites.toml
+User=ship-rs
+Group=ship-rs
+EnvironmentFile=/etc/ship-rs/ship-rs.env
+ExecStart=/usr/local/bin/ship-rs serve --config /etc/ship-rs/sites.toml
 Restart=on-failure
 RestartSec=2s
 NoNewPrivileges=true
@@ -29,7 +29,7 @@ SystemCallArchitectures=native
 CapabilityBoundingSet=
 AmbientCapabilities=
 UMask=0077
-ReadOnlyPaths=/etc/sitegate
+ReadOnlyPaths=/etc/ship-rs
 
 [Install]
 WantedBy=multi-user.target

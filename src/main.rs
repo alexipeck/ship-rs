@@ -4,16 +4,16 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
-use sitegate::config::{self, Config};
-use sitegate::deploy;
-use sitegate::envfile;
-use sitegate::generate;
-use sitegate::secrets;
-use sitegate::server;
-use sitegate::version;
+use ship_rs::config::{self, Config};
+use ship_rs::deploy;
+use ship_rs::envfile;
+use ship_rs::generate;
+use ship_rs::secrets;
+use ship_rs::server;
+use ship_rs::version;
 
 #[derive(Parser)]
-#[command(name = "sitegate", disable_help_flag = true, disable_version_flag = true)]
+#[command(name = "ship-rs", disable_help_flag = true, disable_version_flag = true)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -71,13 +71,13 @@ async fn main() -> ExitCode {
         _ => {}
     }
     if args[0] == "serve" || args[0] == "generate" || args[0] == "deploy" || args[0] == "validate" {
-        let config_from_env = env::var("SITEGATE_CONFIG").unwrap_or_default();
+        let config_from_env = env::var("SHIP_RS_CONFIG").unwrap_or_default();
         if !config_from_env.is_empty() && !args.iter().any(|a| a == "--config" || a.starts_with("--config=")) {
             args.insert(1, "--config".into());
             args.insert(2, config_from_env);
         }
     }
-    let cli = match Cli::try_parse_from(std::iter::once("sitegate".to_string()).chain(args)) {
+    let cli = match Cli::try_parse_from(std::iter::once("ship-rs".to_string()).chain(args)) {
         Ok(cli) => cli,
         Err(err) => {
             let _ = write!(io::stderr(), "{err}");
@@ -96,7 +96,7 @@ async fn main() -> ExitCode {
         }
     };
     if let Err(err) = result {
-        let _ = writeln!(io::stderr(), "sitegate: {err}");
+        let _ = writeln!(io::stderr(), "ship-rs: {err}");
         return ExitCode::from(1);
     }
     ExitCode::SUCCESS
@@ -105,16 +105,16 @@ async fn main() -> ExitCode {
 fn usage(out: &mut impl Write) {
     let _ = writeln!(
         out,
-        "sitegate {version}
+        "ship-rs {version}
 
 Usage:
-  sitegate serve --config PATH [--env-file PATH]
-  sitegate generate --config PATH [--caddyfile PATH] [--hub PATH]
-  sitegate deploy --config PATH [--caddyfile PATH] [--hub PATH] [--reload]
-  sitegate validate --config PATH
-  sitegate version
+  ship-rs serve --config PATH [--env-file PATH]
+  ship-rs generate --config PATH [--caddyfile PATH] [--hub PATH]
+  ship-rs deploy --config PATH [--caddyfile PATH] [--hub PATH] [--reload]
+  ship-rs validate --config PATH
+  ship-rs version
 
---config is the installation's sites.toml, for example /etc/sitegate/sites.toml.
+--config is the installation's sites.toml, for example /etc/ship-rs/sites.toml.
 Secrets come from the environment or --env-file, never from the TOML file.",
         version = version::version()
     );
@@ -128,7 +128,7 @@ async fn serve(config_path: &str, env_file: &str) -> Result<(), String> {
         envfile::load(Path::new(env_file)).map_err(|e| e.to_string())?;
     }
     if config_path.trim().is_empty() {
-        return Err("set --config or SITEGATE_CONFIG".into());
+        return Err("set --config or SHIP_RS_CONFIG".into());
     }
     let sec = secrets::from_env(|k| env::var(k).unwrap_or_default())?;
     if sec.allow_unsafe {
@@ -142,12 +142,12 @@ async fn serve(config_path: &str, env_file: &str) -> Result<(), String> {
     let addr = if sec.listen.is_empty() {
         cfg.auth_upstream.clone()
     } else if sec.listen != cfg.auth_upstream {
-        return Err(format!("SITEGATE_LISTEN {} does not match auth_upstream {}", sec.listen, cfg.auth_upstream));
+        return Err(format!("SHIP_RS_LISTEN {} does not match auth_upstream {}", sec.listen, cfg.auth_upstream));
     } else {
         sec.listen.clone()
     };
     let svc = server::Service::new(store, sec);
-    tracing::info!(version = version::version(), config = %cfg.path.display(), domain = %cfg.base_domain, "sitegate");
+    tracing::info!(version = version::version(), config = %cfg.path.display(), domain = %cfg.base_domain, "ship-rs");
     svc.run(&addr).await
 }
 
@@ -201,7 +201,7 @@ fn validate_cmd(config_path: &str) -> Result<(), String> {
 
 fn must_config(path: &str, caddyfile: &str, hub: &str) -> Result<Config, String> {
     if path.trim().is_empty() {
-        return Err("set --config or SITEGATE_CONFIG".into());
+        return Err("set --config or SHIP_RS_CONFIG".into());
     }
     let mut cfg = config::load(Path::new(path))?;
     if !caddyfile.is_empty() {

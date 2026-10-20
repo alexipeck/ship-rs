@@ -4,14 +4,14 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 cd "$root"
 
-config=${1:-${SITEGATE_CONFIG:-}}
+config=${1:-${SHIP_RS_CONFIG:-}}
 if [ -z "$config" ]; then
-  echo "usage: scripts/deploy.sh /etc/sitegate/sites.toml" >&2
+  echo "usage: scripts/deploy.sh /etc/ship-rs/sites.toml" >&2
   exit 2
 fi
 
-if [ ! -x target/release/sitegate ]; then
+if [ ! -x target/release/ship-rs ]; then
   cargo build --release
 fi
 
-exec target/release/sitegate deploy --config "$config" --reload
+exec target/release/ship-rs deploy --config "$config" --reload

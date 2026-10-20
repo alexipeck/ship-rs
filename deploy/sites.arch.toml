@@ -1,8 +1,8 @@
 # Installed by scripts/deploy-remote.sh. Edit this file, then re-run deploy.
 # Change base_domain, acme_email, and admins before enabling Caddy.
-# OAuth client secrets belong in /etc/sitegate/sitegate.env, not here.
+# OAuth client secrets belong in /etc/ship-rs/ship-rs.env, not here.
 # The three sites below are the dummy examples. Replace their files under
-# /srv/sitegate/src when you are ready to serve your own content.
+# /srv/ship-rs/src when you are ready to serve your own content.
 
 base_domain = "example.com"
 acme_email = "admin@example.com"
@@ -14,21 +14,21 @@ admins = ["admin@example.com"]
 
 [hub]
 title = "Sites"
-deploy = "/srv/sitegate/hub"
+deploy = "/srv/ship-rs/hub"
 
 [[sites]]
 slug = "hello"
 title = "Public hello"
-source = "/srv/sitegate/src/hello"
-deploy = "/srv/sitegate/sites/hello"
+source = "/srv/ship-rs/src/hello"
+deploy = "/srv/ship-rs/sites/hello"
 subdomain = "hello"
 public = true
 
 [[sites]]
 slug = "notes"
 title = "Protected hello"
-source = "/srv/sitegate/src/notes"
-deploy = "/srv/sitegate/sites/notes"
+source = "/srv/ship-rs/src/notes"
+deploy = "/srv/ship-rs/sites/notes"
 subdomain = "notes"
 public = false
 allow = ["guest@example.com"]
@@ -36,8 +36,8 @@ allow = ["guest@example.com"]
 [[sites]]
 slug = "spa"
 title = "SPA demo"
-source = "/srv/sitegate/src/spa"
-deploy = "/srv/sitegate/sites/spa"
+source = "/srv/ship-rs/src/spa"
+deploy = "/srv/ship-rs/sites/spa"
 subdomain = "spa"
 public = true
 spa = true

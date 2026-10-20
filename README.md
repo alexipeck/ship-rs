@@ -1,12 +1,12 @@
-# Sitegate
+# ship-rs
 
-Sitegate serves several static sites from one Arch Linux VPS. Each site has its own subdomain. Public sites are open. Protected sites require Google or GitHub sign-in, and only the emails on that site's allowlist (plus the installation admins) get in.
+ship-rs serves several static sites from one Arch Linux VPS. Each site has its own subdomain. Public sites are open. Protected sites require Google or GitHub sign-in, and only the emails on that site's allowlist (plus the installation admins) get in.
 
-The repository is the platform: the `sitegate` binary, an example manifest, and three dummy sites. A real installation keeps its own `sites.toml` and site files on the VPS, outside this repository. Nothing from a personal site is included here.
+The repository is the platform: the `ship-rs` binary, an example manifest, and three dummy sites. A real installation keeps its own `sites.toml` and site files on the VPS, outside this repository. Nothing from a personal site is included here.
 
 ## What you get
 
-One binary, `sitegate`, with five subcommands:
+One binary, `ship-rs`, with five subcommands:
 
 | Command | What it does |
 | --- | --- |
@@ -16,7 +16,7 @@ One binary, `sitegate`, with five subcommands:
 | `validate` | Prints the parsed installation. Allowlist emails stay out of the output. |
 | `version` | Prints the version. |
 
-Caddy itself stays stock, from Arch's `caddy` package. Sitegate does not build Caddy or load plugins.
+Caddy itself stays stock, from Arch's `caddy` package. ship-rs does not build Caddy or load plugins.
 
 ## Language
 
@@ -43,15 +43,15 @@ Crates, and why these ones:
 
 | Path | Role |
 | --- | --- |
-| `/etc/sitegate/sites.toml` | Installation manifest. No secrets. Mode `0644`. |
-| `/etc/sitegate/sitegate.env` | OAuth client secrets and the cookie key. Mode `0600`, owner root. |
-| `/usr/local/bin/sitegate` | The release binary. |
+| `/etc/ship-rs/sites.toml` | Installation manifest. No secrets. Mode `0644`. |
+| `/etc/ship-rs/ship-rs.env` | OAuth client secrets and the cookie key. Mode `0600`, owner root. |
+| `/usr/local/bin/ship-rs` | The release binary. |
 | `/etc/caddy/Caddyfile` | Generated. Do not edit by hand. |
-| `/srv/sitegate/hub` | Generated hub page. |
-| `/srv/sitegate/sites/<slug>` | Deployed files Caddy serves. |
-| `/srv/sitegate/src/<slug>` | Optional source tree the deploy command builds and syncs. |
+| `/srv/ship-rs/hub` | Generated hub page. |
+| `/srv/ship-rs/sites/<slug>` | Deployed files Caddy serves. |
+| `/srv/ship-rs/src/<slug>` | Optional source tree the deploy command builds and syncs. |
 
-`deploy/sites.toml.example` and `deploy/sitegate.env.example` are the templates. `examples/sites.toml` and `examples/public-hello`, `examples/protected-hello`, and `examples/spa-demo` are dummy sites for a local run. Point a production manifest at `/srv/sitegate`, not at this repository.
+`deploy/sites.toml.example` and `deploy/ship-rs.env.example` are the templates. `examples/sites.toml` and `examples/public-hello`, `examples/protected-hello`, and `examples/spa-demo` are dummy sites for a local run. Point a production manifest at `/srv/ship-rs`, not at this repository.
 
 ## Try the example
 
@@ -69,13 +69,13 @@ make test
 
 ## Put it on an Arch server
 
-The release binary for `x86_64-unknown-linux-gnu` is in `prebuilt/sitegate`. From a machine that can SSH to the VPS:
+The release binary for `x86_64-unknown-linux-gnu` is in `prebuilt/ship-rs`. From a machine that can SSH to the VPS:
 
 ```sh
 scripts/deploy-remote.sh user@your-server
 ```
 
-That installs the service, the dummy example sites, and `/etc/sitegate/sites.toml` for you to edit. It leaves the firewall alone and does not start Caddy. Details are in [docs/install.md](docs/install.md).
+That installs the service, the dummy example sites, and `/etc/ship-rs/sites.toml` for you to edit. It leaves the firewall alone and does not start Caddy. Details are in [docs/install.md](docs/install.md).
 
 ## Docs
 

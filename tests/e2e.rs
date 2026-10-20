@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use base64::Engine;
-use sitegate::identity;
-use sitegate::session::{self, KeyRing, Session};
+use ship_rs::identity;
+use ship_rs::session::{self, KeyRing, Session};
 
 const HTTP_PORT: u16 = 19080;
 const HTTPS_PORT: u16 = 19443;
@@ -32,19 +32,19 @@ impl Drop for Stack {
 async fn caddy_forward_auth_and_mocked_oauth() {
     let caddy_bin = std::env::var("CADDY_BIN").unwrap_or_else(|_| "/workspace/bin/caddy".into());
     assert!(Path::new(&caddy_bin).is_file(), "caddy binary missing at {caddy_bin}");
-    let bin = PathBuf::from(env!("CARGO_BIN_EXE_sitegate"));
+    let bin = PathBuf::from(env!("CARGO_BIN_EXE_ship-rs"));
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let dir = tempfile::tempdir().unwrap();
     let data = dir.path().join("caddy-data");
     fs::create_dir_all(&data).unwrap();
 
-    let google = sitegate::testidp::Google::start("e2e-google", "e2e-google-secret", "Guest@Example.com", true).await;
-    let github = sitegate::testidp::GitHub::start(
+    let google = ship_rs::testidp::Google::start("e2e-google", "e2e-google-secret", "Guest@Example.com", true).await;
+    let github = ship_rs::testidp::GitHub::start(
         "e2e-github",
         "e2e-github-secret",
         vec![
-            sitegate::testidp::Email { email: "other@example.com".into(), primary: false, verified: true },
-            sitegate::testidp::Email { email: "Owner@Example.com".into(), primary: true, verified: true },
+            ship_rs::testidp::Email { email: "other@example.com".into(), primary: false, verified: true },
+            ship_rs::testidp::Email { email: "Owner@Example.com".into(), primary: true, verified: true },
         ],
     )
     .await;
@@ -79,17 +79,17 @@ async fn caddy_forward_auth_and_mocked_oauth() {
         &bin,
         &["serve", "--config", cfg_path.to_str().unwrap()],
         &[
-            ("SITEGATE_COOKIE_KEY", key.as_str()),
-            ("SITEGATE_GOOGLE_CLIENT_ID", "e2e-google"),
-            ("SITEGATE_GOOGLE_CLIENT_SECRET", "e2e-google-secret"),
-            ("SITEGATE_GITHUB_CLIENT_ID", "e2e-github"),
-            ("SITEGATE_GITHUB_CLIENT_SECRET", "e2e-github-secret"),
-            ("SITEGATE_ALLOW_UNSAFE_OAUTH_OVERRIDES", "1"),
-            ("SITEGATE_OIDC_ISSUER", google.issuer.as_str()),
-            ("SITEGATE_GITHUB_AUTH_URL", github.auth_url.as_str()),
-            ("SITEGATE_GITHUB_TOKEN_URL", github.token_url.as_str()),
-            ("SITEGATE_GITHUB_EMAILS_URL", github.emails_url.as_str()),
-            ("SITEGATE_LISTEN", &format!("127.0.0.1:{AUTH_PORT}")),
+            ("SHIP_RS_COOKIE_KEY", key.as_str()),
+            ("SHIP_RS_GOOGLE_CLIENT_ID", "e2e-google"),
+            ("SHIP_RS_GOOGLE_CLIENT_SECRET", "e2e-google-secret"),
+            ("SHIP_RS_GITHUB_CLIENT_ID", "e2e-github"),
+            ("SHIP_RS_GITHUB_CLIENT_SECRET", "e2e-github-secret"),
+            ("SHIP_RS_ALLOW_UNSAFE_OAUTH_OVERRIDES", "1"),
+            ("SHIP_RS_OIDC_ISSUER", google.issuer.as_str()),
+            ("SHIP_RS_GITHUB_AUTH_URL", github.auth_url.as_str()),
+            ("SHIP_RS_GITHUB_TOKEN_URL", github.token_url.as_str()),
+            ("SHIP_RS_GITHUB_EMAILS_URL", github.emails_url.as_str()),
+            ("SHIP_RS_LISTEN", &format!("127.0.0.1:{AUTH_PORT}")),
         ],
         &gate_log,
     );
@@ -176,7 +176,7 @@ async fn caddy_forward_auth_and_mocked_oauth() {
         client
             .get(format!("https://notes.example.com:{HTTPS_PORT}/"))
             .header("accept", "text/html")
-            .header("x-sitegate-email", "owner@example.com")
+            .header("x-ship-rs-email", "owner@example.com")
             .header("x-forwarded-host", "evil.example")
     })
     .await;

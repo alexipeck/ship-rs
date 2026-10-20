@@ -2483,6 +2483,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "ship-rs"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "clap",
+ "cookie",
+ "form_urlencoded",
+ "hex",
+ "http",
+ "http-body-util",
+ "humantime",
+ "idna",
+ "jsonwebtoken",
+ "notify",
+ "oauth2",
+ "openidconnect",
+ "rand 0.8.8",
+ "reqwest",
+ "rsa",
+ "serde",
+ "serde_json",
+ "sha2",
+ "subtle",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tokio",
+ "toml",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+]
+
+[[package]]
 name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2518,42 +2554,6 @@ dependencies = [
  "num-traits",
  "thiserror 2.0.21",
  "time",
-]
-
-[[package]]
-name = "sitegate"
-version = "0.1.0"
-dependencies = [
- "axum",
- "base64 0.22.1",
- "clap",
- "cookie",
- "form_urlencoded",
- "hex",
- "http",
- "http-body-util",
- "humantime",
- "idna",
- "jsonwebtoken",
- "notify",
- "oauth2",
- "openidconnect",
- "rand 0.8.8",
- "reqwest",
- "rsa",
- "serde",
- "serde_json",
- "sha2",
- "subtle",
- "tempfile",
- "thiserror 2.0.21",
- "tokio",
- "toml",
- "tower",
- "tower-http",
- "tracing",
- "tracing-subscriber",
- "url",
 ]
 
 [[package]]

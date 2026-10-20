@@ -1,5 +1,5 @@
 # Example installation file shipped with the repo.
-# Paths are relative to this file. A real VPS uses /etc/sitegate/sites.toml
+# Paths are relative to this file. A real VPS uses /etc/ship-rs/sites.toml
 # and does not point source or deploy at this repository.
 # Secrets do not belong here.
 

@@ -1,6 +1,6 @@
 # Install on Arch Linux
 
-Sitegate is a single Rust binary plus stock Caddy. The binary is built with rustup and cargo. Arch's `caddy` and `rsync` packages come from the official repositories. Do not install a custom Caddy build.
+ship-rs is a single Rust binary plus stock Caddy. The binary is built with rustup and cargo. Arch's `caddy` and `rsync` packages come from the official repositories. Do not install a custom Caddy build.
 
 ## Packages
 
@@ -24,23 +24,23 @@ From a checkout of this repository:
 
 ```sh
 cargo build --release
-sudo install -m 0755 target/release/sitegate /usr/local/bin/sitegate
-sitegate version
+sudo install -m 0755 target/release/ship-rs /usr/local/bin/ship-rs
+ship-rs version
 ```
 
-`cargo build --release` reads `Cargo.lock`. The binary has no runtime dependency on the Rust toolchain. After it is installed, the VPS only needs Caddy, rsync, and `sitegate`.
+`cargo build --release` reads `Cargo.lock`. The binary has no runtime dependency on the Rust toolchain. After it is installed, the VPS only needs Caddy, rsync, and `ship-rs`.
 
-`scripts/install-arch.sh` does the same steps when run as root on a machine with `pacman`: it installs `caddy` and `rsync`, builds the release binary, installs it to `/usr/local/bin/sitegate`, creates the `sitegate` system user, and installs the systemd unit. It does not overwrite an existing `/etc/sitegate/sites.toml` or `/etc/sitegate/sitegate.env`.
+`scripts/install-arch.sh` does the same steps when run as root on a machine with `pacman`: it installs `caddy` and `rsync`, builds the release binary, installs it to `/usr/local/bin/ship-rs`, creates the `ship-rs` system user, and installs the systemd unit. It does not overwrite an existing `/etc/ship-rs/sites.toml` or `/etc/ship-rs/ship-rs.env`.
 
 ## Files
 
 ```sh
-sudo install -d -m 0755 /etc/sitegate /srv/sitegate/hub /srv/sitegate/sites /srv/sitegate/src
-sudo install -m 0644 deploy/sites.toml.example /etc/sitegate/sites.toml
-sudo install -m 0600 deploy/sitegate.env.example /etc/sitegate/sitegate.env
+sudo install -d -m 0755 /etc/ship-rs /srv/ship-rs/hub /srv/ship-rs/sites /srv/ship-rs/src
+sudo install -m 0644 deploy/sites.toml.example /etc/ship-rs/sites.toml
+sudo install -m 0600 deploy/ship-rs.env.example /etc/ship-rs/ship-rs.env
 ```
 
-Edit `/etc/sitegate/sites.toml` and set `base_domain`, `acme_email`, `admins`, and the sites you actually host. Real site files belong under `/srv/sitegate`. Leave them out of any git checkout of this repository.
+Edit `/etc/ship-rs/sites.toml` and set `base_domain`, `acme_email`, `admins`, and the sites you actually host. Real site files belong under `/srv/ship-rs`. Leave them out of any git checkout of this repository.
 
 Generate a cookie key and put it in the env file:
 
@@ -48,23 +48,23 @@ Generate a cookie key and put it in the env file:
 openssl rand -base64 32
 ```
 
-`SITEGATE_COOKIE_KEY` is 32 bytes, encoded as standard base64 (padding optional) or as hex. An all-zero key is rejected. The env file stays mode `0600` and owned by root. systemd reads `EnvironmentFile` before it drops privileges. The `sitegate` user never needs to read that file, and the TOML file never contains a client secret or the cookie key.
+`SHIP_RS_COOKIE_KEY` is 32 bytes, encoded as standard base64 (padding optional) or as hex. An all-zero key is rejected. The env file stays mode `0600` and owned by root. systemd reads `EnvironmentFile` before it drops privileges. The `ship-rs` user never needs to read that file, and the TOML file never contains a client secret or the cookie key.
 
-Fill in the Google and GitHub client id and secret. The callback URLs are in [oauth.md](oauth.md). `SITEGATE_SESSION_TTL` defaults to `12h` and must sit between `5m` and `168h`.
+Fill in the Google and GitHub client id and secret. The callback URLs are in [oauth.md](oauth.md). `SHIP_RS_SESSION_TTL` defaults to `12h` and must sit between `5m` and `168h`.
 
 ## User and unit
 
 ```sh
-sudo useradd --system --home-dir /var/lib/sitegate --create-home --shell /usr/bin/nologin sitegate
-sudo install -m 0644 deploy/sitegate.service /etc/systemd/system/sitegate.service
+sudo useradd --system --home-dir /var/lib/ship-rs --create-home --shell /usr/bin/nologin ship-rs
+sudo install -m 0644 deploy/ship-rs.service /etc/systemd/system/ship-rs.service
 sudo systemctl daemon-reload
-sudo systemctl enable --now sitegate
-sudo systemctl status sitegate
+sudo systemctl enable --now ship-rs
+sudo systemctl status ship-rs
 ```
 
-The unit runs `sitegate serve --config /etc/sitegate/sites.toml` as user `sitegate`. It listens only on the loopback address in `auth_upstream` (default `127.0.0.1:8091`). `SITEGATE_LISTEN`, if set, must be that same address.
+The unit runs `ship-rs serve --config /etc/ship-rs/sites.toml` as user `ship-rs`. It listens only on the loopback address in `auth_upstream` (default `127.0.0.1:8091`). `SHIP_RS_LISTEN`, if set, must be that same address.
 
-The unit sets `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, an empty capability set, and `UMask=0077`. `RestrictAddressFamilies` allows `AF_INET`, `AF_INET6`, and `AF_UNIX`. The UNIX family is there so glibc name service can talk to systemd-resolved. `MemoryDenyWriteExecute` is omitted so process startup is not coupled to a filter that rejects the runtime's executable mappings. `ReadOnlyPaths=/etc/sitegate` covers the manifest.
+The unit sets `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, an empty capability set, and `UMask=0077`. `RestrictAddressFamilies` allows `AF_INET`, `AF_INET6`, and `AF_UNIX`. The UNIX family is there so glibc name service can talk to systemd-resolved. `MemoryDenyWriteExecute` is omitted so process startup is not coupled to a filter that rejects the runtime's executable mappings. `ReadOnlyPaths=/etc/ship-rs` covers the manifest.
 
 Confirm the listener:
 
@@ -77,28 +77,28 @@ curl -fsS http://127.0.0.1:8091/healthz
 Enable Caddy after the first generate, and after DNS answers for the names in the manifest:
 
 ```sh
-sudo sitegate validate --config /etc/sitegate/sites.toml
-sudo sitegate deploy --config /etc/sitegate/sites.toml
+sudo ship-rs validate --config /etc/ship-rs/sites.toml
+sudo ship-rs deploy --config /etc/ship-rs/sites.toml
 sudo systemctl enable --now caddy
 sudo systemctl reload caddy
 ```
 
 `deploy --reload` runs `systemctl reload caddy` for you. Leave Caddy's admin endpoint on localhost. The example manifest sets `caddy_admin = "off"` so a laptop run does not bind port 2019. A production manifest should leave `caddy_admin` unset so `systemctl reload` can reach the admin API. Do not set `caddy_admin` to a public address.
 
-`scripts/deploy.sh /etc/sitegate/sites.toml` builds the release binary when `target/release/sitegate` is missing, then runs `deploy --reload`.
+`scripts/deploy.sh /etc/ship-rs/sites.toml` builds the release binary when `target/release/ship-rs` is missing, then runs `deploy --reload`.
 
 ## Install from your own machine
 
-`prebuilt/sitegate` is the `x86_64-unknown-linux-gnu` release binary (glibc 2.39 or newer). From a checkout on a computer that can already SSH to the VPS:
+`prebuilt/ship-rs` is the `x86_64-unknown-linux-gnu` release binary (glibc 2.39 or newer). From a checkout on a computer that can already SSH to the VPS:
 
 ```sh
 scripts/deploy-remote.sh user@203.0.113.10
 scripts/deploy-remote.sh -p 22 -i ~/.ssh/id_ed25519 user@203.0.113.10
 ```
 
-The script checks that the server is x86_64 Arch with a new enough glibc, copies the binary, installs Caddy, rsync, and OpenSSL, creates the `sitegate` user, and starts the loopback service. It copies the three dummy sites into `/srv/sitegate/src` and `/srv/sitegate/sites`, and writes `/etc/sitegate/sites.toml` from `deploy/sites.arch.toml` when that file is not already there. A cookie key is generated in `/etc/sitegate/sitegate.env` on first install. An existing manifest or env file is left untouched.
+The script checks that the server is x86_64 Arch with a new enough glibc, copies the binary, installs Caddy, rsync, and OpenSSL, creates the `ship-rs` user, and starts the loopback service. It copies the three dummy sites into `/srv/ship-rs/src` and `/srv/ship-rs/sites`, and writes `/etc/ship-rs/sites.toml` from `deploy/sites.arch.toml` when that file is not already there. A cookie key is generated in `/etc/ship-rs/ship-rs.env` on first install. An existing manifest or env file is left untouched.
 
-It does not open firewall ports and it does not start Caddy. Edit `base_domain`, `acme_email`, and `admins` in `/etc/sitegate/sites.toml`, put the OAuth client id and secret in the env file, restart `sitegate`, then run `sitegate deploy --config /etc/sitegate/sites.toml --reload` and `systemctl enable --now caddy`.
+It does not open firewall ports and it does not start Caddy. Edit `base_domain`, `acme_email`, and `admins` in `/etc/ship-rs/sites.toml`, put the OAuth client id and secret in the env file, restart `ship-rs`, then run `ship-rs deploy --config /etc/ship-rs/sites.toml --reload` and `systemctl enable --now caddy`.
 
 ## Local example
 
