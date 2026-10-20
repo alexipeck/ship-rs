@@ -1,5 +1,7 @@
 # ship-rs
 
+ship-rs is licensed under the GNU General Public License version 2.0. The full text is in [LICENSE](LICENSE).
+
 ship-rs serves several static sites from one Arch Linux VPS. Each site has its own subdomain. Public sites are open. Protected sites require Google or GitHub sign-in, and only the emails on that site's allowlist (plus the installation admins) get in.
 
 The repository is the platform: the `ship-rs` binary, an example manifest, and three dummy sites. A real installation keeps its own `sites.toml` and site files on the VPS, outside this repository. Nothing from a personal site is included here.
