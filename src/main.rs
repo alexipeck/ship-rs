@@ -181,16 +181,12 @@ fn validate_cmd(config_path: &str) -> Result<(), String> {
         println!("preview: http://{}", cfg.preview_addr);
     }
     for site in &cfg.sites {
-        let access = if site.public { "public" } else { "protected" };
         let state = if site.enabled { "enabled" } else { "disabled" };
         let mut extra = String::new();
         if site.spa {
             extra.push_str(" spa");
         }
-        if site.unlisted {
-            extra.push_str(" unlisted");
-        }
-        println!("  {} {} {} {} allow={}{}", site.slug, state, access, cfg.site_origin(site), site.allow.len(), extra);
+        println!("  {} {} {} {} allow={}{}", site.slug, state, site.visibility.as_str(), cfg.site_origin(site), site.allow.len(), extra);
         println!("    deploy {}", site.deploy.display());
         if let Some(source) = &site.source {
             println!("    source {}", source.display());

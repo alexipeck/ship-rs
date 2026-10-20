@@ -25,7 +25,7 @@ title = "Public hello"
 source = "public-hello"
 deploy = "dist/hello"
 subdomain = "hello"
-public = true
+visibility = "public"
 
 [[sites]]
 slug = "notes"
@@ -33,7 +33,7 @@ title = "Protected hello"
 source = "protected-hello"
 deploy = "dist/notes"
 subdomain = "notes"
-public = false
+visibility = "private-listed"
 allow = ["guest@example.com"]
 
 [[sites]]
@@ -42,5 +42,5 @@ title = "SPA demo"
 source = "spa-demo"
 deploy = "dist/spa"
 subdomain = "spa"
-public = true
+visibility = "public"
 spa = true

@@ -72,16 +72,18 @@ fn write_auth(b: &mut String, cfg: &Config) {
     write_response_strip(b, "\t");
     let _ = writeln!(b, "\treverse_proxy {} {{", cfg.auth_upstream);
     write_header_up_strip(b, "\t\t");
+    write_forwarded_host(b, "\t\t");
     b.push_str("\t}\n}\n\n");
 }
 
 fn write_apex(b: &mut String, cfg: &Config) {
     let _ = writeln!(b, "{} {{", cfg.base_domain);
-    let _ = writeln!(b, "\troot * {}", cfg.hub.deploy.display());
     b.push_str("\tencode gzip zstd\n");
     write_response_strip(b, "\t");
-    write_request_strip(b, "\t");
-    b.push_str("\tfile_server\n}\n\n");
+    let _ = writeln!(b, "\treverse_proxy {} {{", cfg.auth_upstream);
+    write_header_up_strip(b, "\t\t");
+    write_forwarded_host(b, "\t\t");
+    b.push_str("\t}\n}\n\n");
 }
 
 fn write_www(b: &mut String, cfg: &Config) {
@@ -94,7 +96,7 @@ fn write_site(b: &mut String, cfg: &Config, site: &Site) {
     let _ = writeln!(b, "\troot * {}", site.deploy.display());
     b.push_str("\tencode gzip zstd\n");
     write_response_strip(b, "\t");
-    if site.public {
+    if site.visibility.is_public() {
         write_request_strip(b, "\t");
         if site.spa {
             b.push_str("\troute {\n");
@@ -156,15 +158,26 @@ fn write_header_up_strip(b: &mut String, indent: &str) {
     }
 }
 
+fn write_forwarded_host(b: &mut String, indent: &str) {
+    let _ = writeln!(b, "{indent}header_up -X-Forwarded-Host");
+    let _ = writeln!(b, "{indent}header_up X-Forwarded-Host {{http.request.host}}");
+    let _ = writeln!(b, "{indent}header_up -X-Forwarded-Proto");
+    let _ = writeln!(b, "{indent}header_up X-Forwarded-Proto {{http.request.scheme}}");
+}
+
 pub fn hub_html(cfg: &Config) -> String {
+    hub_html_for(cfg, None)
+}
+
+pub fn hub_html_for(cfg: &Config, email: Option<&str>) -> String {
     let mut sites = String::new();
-    let listed = cfg.listed();
+    let listed = cfg.hub_sites(email);
     if listed.is_empty() {
         sites.push_str("<p class=\"card\">No sites are listed.</p>\n");
     } else {
         sites.push_str("<ul class=\"sites\">\n");
         for site in &listed {
-            let (class, badge) = if site.public { ("public", "Public") } else { ("protected", "Sign-in required") };
+            let (class, badge) = site.visibility.badge();
             let _ = write!(
                 sites,
                 "<li>\n<a href=\"{}\">\n<span class=\"title\">{}</span>\n<span class=\"host\">{}</span>\n</a>\n<span class=\"badge {class}\">{badge}</span>\n</li>\n",
@@ -176,7 +189,7 @@ pub fn hub_html(cfg: &Config) -> String {
         sites.push_str("</ul>\n");
     }
     format!(
-        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>{}</title>\n<style>{}</style>\n</head>\n<body>\n<main>\n<p class=\"mark\">ship-rs</p>\n<h1>{}</h1>\n<p class=\"lede\">Sites on {}. A lock means the site asks you to sign in.</p>\n{sites}</main>\n</body>\n</html>\n",
+        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>{}</title>\n<style>{}</style>\n</head>\n<body>\n<main>\n<p class=\"mark\">ship-rs</p>\n<h1>{}</h1>\n<p class=\"lede\">Sites on {}. Private sites ask you to sign in.</p>\n{sites}</main>\n</body>\n</html>\n",
         esc(&cfg.hub.title),
         pages::css(),
         esc(&cfg.hub.title),

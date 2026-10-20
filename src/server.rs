@@ -52,6 +52,7 @@ impl Service {
         Router::new()
             .route("/healthz", get(healthz))
             .route("/", get(home))
+            .route("/index.html", get(home))
             .route("/login/{provider}", get(begin))
             .route("/callback/{provider}", get(finish))
             .route("/logout", post(logout).get(logout_help))
@@ -119,6 +120,18 @@ async fn healthz() -> Response {
 
 async fn home(State(svc): State<Service>, headers: HeaderMap, uri: Uri) -> Response {
     let cfg = svc.store.current();
+    if uri.path() == "/" || uri.path() == "/index.html" {
+        if let Ok(host) = dnsname::canonical(&header_value(&headers, "x-forwarded-host")) {
+            if host == cfg.base_domain {
+                let email = read_session(&svc, &headers).map(|sess| sess.email);
+                let body = crate::generate::hub_html_for(&cfg, email.as_deref());
+                return html(StatusCode::OK, &pages::csp_self(), body);
+            }
+        }
+    }
+    if uri.path() != "/" {
+        return plain(StatusCode::NOT_FOUND, "not found\n");
+    }
     let (ret, bad) = optional_return(&uri, &cfg);
     let status = if bad { StatusCode::BAD_REQUEST } else { StatusCode::OK };
     let mut email = String::new();
@@ -856,6 +869,95 @@ allow = ["Guest@Example.com"]
         assert_eq!(headers.get("location").unwrap(), "https://notes.example.com/docs");
         let set = headers.get("set-cookie").unwrap().to_str().unwrap();
         assert!(set.contains("Max-Age=0") || set.contains("Max-Age=-1"), "{set}");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn hub_filters_hidden_sites() {
+        let body = r#"
+base_domain = "example.com"
+tls = "internal"
+auth_upstream = "127.0.0.1:8091"
+caddyfile = "Caddyfile"
+admins = ["owner@example.com"]
+
+[hub]
+title = "Example sites"
+deploy = "hub"
+
+[[sites]]
+slug = "hello"
+title = "Public hello"
+deploy = "hello"
+subdomain = "hello"
+visibility = "public"
+
+[[sites]]
+slug = "notes"
+title = "Protected hello"
+deploy = "notes"
+subdomain = "notes"
+visibility = "private-listed"
+allow = ["guest@example.com"]
+
+[[sites]]
+slug = "draft"
+title = "Draft"
+deploy = "draft"
+subdomain = "draft"
+visibility = "private"
+allow = ["guest@example.com"]
+
+[[sites]]
+slug = "vault"
+title = "Vault"
+deploy = "vault"
+subdomain = "vault"
+visibility = "hidden"
+allow = ["owner@example.com"]
+"#;
+        let (_dir, path) = write_config(body);
+        let svc = new_svc(&path);
+        let guest = mint(&svc, "guest@example.com", identity::PROVIDER_GOOGLE, None);
+        let stranger = mint(&svc, "stranger@example.com", identity::PROVIDER_GOOGLE, None);
+        let anon = Request::builder()
+            .method("GET")
+            .uri("/")
+            .header("x-forwarded-host", "example.com")
+            .body(Body::empty())
+            .unwrap();
+        let (status, _, body) = do_req(svc.router(), anon).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(body.contains("Public hello"), "{body}");
+        assert!(body.contains("Protected hello"), "{body}");
+        assert!(body.contains("Draft"), "{body}");
+        assert!(body.contains(">Private<"), "{body}");
+        assert!(body.contains("Sign-in required"), "{body}");
+        assert!(!body.contains("Vault"), "{body}");
+
+        let mut as_guest = Request::builder()
+            .method("GET")
+            .uri("/")
+            .header("x-forwarded-host", "example.com")
+            .header("cookie", format!("{}={guest}", session::SESSION_COOKIE_NAME))
+            .body(Body::empty())
+            .unwrap();
+        let (_, _, body) = do_req(svc.router(), as_guest).await;
+        assert!(body.contains("Vault"), "{body}");
+
+        as_guest = Request::builder()
+            .method("GET")
+            .uri("/")
+            .header("x-forwarded-host", "example.com")
+            .header("cookie", format!("{}={stranger}", session::SESSION_COOKIE_NAME))
+            .body(Body::empty())
+            .unwrap();
+        let (_, _, body) = do_req(svc.router(), as_guest).await;
+        assert!(!body.contains("Vault"), "{body}");
+
+        let login = Request::builder().method("GET").uri("/").body(Body::empty()).unwrap();
+        let (_, _, body) = do_req(svc.router(), login).await;
+        assert!(body.contains("Sign in"), "{body}");
+        assert!(!body.contains("Public hello"), "{body}");
     }
 
     #[test]

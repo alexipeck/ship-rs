@@ -21,7 +21,7 @@ title = "Public hello"
 # source = "/srv/ship-rs/src/hello"
 deploy = "/srv/ship-rs/sites/hello"
 subdomain = "hello"
-public = true
+visibility = "public"
 
 [[sites]]
 slug = "notes"
@@ -29,7 +29,7 @@ title = "Protected hello"
 # source = "/srv/ship-rs/src/notes"
 deploy = "/srv/ship-rs/sites/notes"
 subdomain = "notes"
-public = false
+visibility = "private-listed"
 allow = ["guest@example.com"]
 
 # [[sites]]
@@ -39,6 +39,5 @@ allow = ["guest@example.com"]
 # build = "npm ci && npm run build"
 # deploy = "/srv/ship-rs/sites/app"
 # subdomain = "app"
-# public = true
+# visibility = "public"
 # spa = true
-# unlisted = false

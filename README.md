@@ -13,7 +13,7 @@ One binary, `ship-rs`, with five subcommands:
 | Command | What it does |
 | --- | --- |
 | `serve` | Authentication service on a loopback address. Caddy calls `GET /check`. |
-| `generate` | Writes a stock Caddyfile and the public hub page from `sites.toml`. |
+| `generate` | Writes a stock Caddyfile and an anonymous copy of the hub page from `sites.toml`. The live hub is rendered per request. |
 | `deploy` | Builds a site when one has a build command, rsyncs it into its deploy directory, then generates the Caddyfile and hub. |
 | `validate` | Prints the parsed installation. Allowlist emails stay out of the output. |
 | `version` | Prints the version. |

@@ -25,6 +25,38 @@ pub enum Access {
     Allowed,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Visibility {
+    Public,
+    Hidden,
+    Private,
+    PrivateListed,
+}
+
+impl Visibility {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Public => "public",
+            Self::Hidden => "hidden",
+            Self::Private => "private",
+            Self::PrivateListed => "private-listed",
+        }
+    }
+
+    pub fn is_public(self) -> bool {
+        self == Self::Public
+    }
+
+    pub fn badge(self) -> (&'static str, &'static str) {
+        match self {
+            Self::Public => ("public", "Public"),
+            Self::Private => ("protected", "Private"),
+            Self::PrivateListed => ("protected", "Sign-in required"),
+            Self::Hidden => ("protected", "Hidden"),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub path: PathBuf,
@@ -56,11 +88,10 @@ pub struct Site {
     pub deploy: PathBuf,
     pub subdomain: String,
     pub fqdn: String,
-    pub public: bool,
+    pub visibility: Visibility,
     pub enabled: bool,
     pub spa: bool,
     pub allow: Vec<String>,
-    pub unlisted: bool,
     pub build: String,
 }
 
@@ -110,6 +141,8 @@ struct FileSite {
     source: String,
     deploy: String,
     subdomain: String,
+    #[serde(default)]
+    visibility: String,
     #[serde(default)]
     public: Option<bool>,
     #[serde(default)]
@@ -234,7 +267,7 @@ impl FileSite {
         if sub == "auth" || sub == "www" {
             return Err(format!("subdomain {sub:?} is reserved"));
         }
-        let public = self.public.ok_or_else(|| "public must be set".to_string())?;
+        let visibility = parse_visibility(&self.visibility, self.public, self.unlisted)?;
         let title = self.title.trim().to_string();
         valid_title(&title)?;
         if self.deploy.trim().is_empty() {
@@ -257,13 +290,40 @@ impl FileSite {
             deploy,
             subdomain: sub.clone(),
             fqdn: format!("{sub}.{domain}"),
-            public,
+            visibility,
             enabled: self.enabled.unwrap_or(true),
             spa: self.spa.unwrap_or(false),
             allow,
-            unlisted: self.unlisted.unwrap_or(false),
             build: self.build,
         })
+    }
+}
+
+fn parse_visibility(visibility: &str, public: Option<bool>, unlisted: Option<bool>) -> Result<Visibility, String> {
+    let visibility = visibility.trim();
+    if !visibility.is_empty() {
+        if public.is_some() || unlisted.is_some() {
+            return Err("set visibility, or public and unlisted, not both".into());
+        }
+        return match visibility {
+            "public" => Ok(Visibility::Public),
+            "hidden" => Ok(Visibility::Hidden),
+            "private" => Ok(Visibility::Private),
+            "private-listed" => Ok(Visibility::PrivateListed),
+            _ => Err("visibility must be public, hidden, private, or private-listed".into()),
+        };
+    }
+    let public = public.ok_or_else(|| "set visibility, or public".to_string())?;
+    let unlisted = unlisted.unwrap_or(false);
+    if public && unlisted {
+        return Err("a public site cannot be unlisted; set visibility instead".into());
+    }
+    if public {
+        Ok(Visibility::Public)
+    } else if unlisted {
+        Ok(Visibility::Hidden)
+    } else {
+        Ok(Visibility::PrivateListed)
     }
 }
 
@@ -279,7 +339,7 @@ impl Config {
         if !site.enabled {
             return (Some(site), Access::Disabled);
         }
-        if site.public {
+        if site.visibility.is_public() {
             return (Some(site), Access::Public);
         }
         if !signed_in || email.is_empty() {
@@ -295,7 +355,26 @@ impl Config {
     }
 
     pub fn listed(&self) -> Vec<Site> {
-        self.sites.iter().filter(|s| s.enabled && !s.unlisted).cloned().collect()
+        self.hub_sites(None)
+    }
+
+    pub fn sees_hidden_sites(&self, email: &str) -> bool {
+        let Ok(email) = identity::normalize_email(email) else {
+            return false;
+        };
+        if self.admins.iter().any(|admin| admin == &email) {
+            return true;
+        }
+        self.sites.iter().any(|site| site.allow.iter().any(|allowed| allowed == &email))
+    }
+
+    pub fn hub_sites(&self, email: Option<&str>) -> Vec<Site> {
+        let sees_hidden = email.is_some_and(|email| self.sees_hidden_sites(email));
+        self.sites
+            .iter()
+            .filter(|site| site.enabled && (site.visibility != Visibility::Hidden || sees_hidden))
+            .cloned()
+            .collect()
     }
 
     pub fn origin(&self, host: &str) -> String {
@@ -598,8 +677,9 @@ allow = ["guest@example.com"]
         assert_eq!(cfg.admins[0], "owner@example.com");
         let notes = &cfg.sites[1];
         assert_eq!(notes.allow[0], "guest@example.com");
-        assert!(!notes.public);
+        assert_eq!(notes.visibility, Visibility::PrivateListed);
         assert!(notes.enabled);
+        assert_eq!(cfg.sites[3].visibility, Visibility::Hidden);
         assert_eq!(cfg.authorize("notes.example.com", "guest@example.com", true).1, Access::Allowed);
         assert_eq!(cfg.authorize("notes.example.com", "GUEST@example.com", true).1, Access::Allowed);
         assert_eq!(cfg.authorize("notes.example.com", "owner@example.com", true).1, Access::Allowed);
@@ -614,6 +694,10 @@ allow = ["guest@example.com"]
         assert_eq!(listed.len(), 2);
         assert_eq!(listed[0].slug, "hello");
         assert_eq!(listed[1].slug, "notes");
+        let guest = cfg.hub_sites(Some("guest@example.com"));
+        assert!(guest.iter().any(|site| site.slug == "hidden"));
+        let stranger = cfg.hub_sites(Some("stranger@example.com"));
+        assert!(!stranger.iter().any(|site| site.slug == "hidden"));
         assert!(cfg.hub.deploy.starts_with("/"));
     }
 

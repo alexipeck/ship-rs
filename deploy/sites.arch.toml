@@ -22,7 +22,7 @@ title = "Public hello"
 source = "/srv/ship-rs/src/hello"
 deploy = "/srv/ship-rs/sites/hello"
 subdomain = "hello"
-public = true
+visibility = "public"
 
 [[sites]]
 slug = "notes"
@@ -30,7 +30,7 @@ title = "Protected hello"
 source = "/srv/ship-rs/src/notes"
 deploy = "/srv/ship-rs/sites/notes"
 subdomain = "notes"
-public = false
+visibility = "private-listed"
 allow = ["guest@example.com"]
 
 [[sites]]
@@ -39,5 +39,5 @@ title = "SPA demo"
 source = "/srv/ship-rs/src/spa"
 deploy = "/srv/ship-rs/sites/spa"
 subdomain = "spa"
-public = true
+visibility = "public"
 spa = true
