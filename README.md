@@ -71,13 +71,15 @@ make test
 
 ## Put it on an Arch server
 
-The release binary for `x86_64-unknown-linux-gnu` is in `prebuilt/ship`. From a machine that can SSH to the VPS:
+From a checkout on Linux, macOS, WSL, or Git Bash, with OpenSSH on `PATH`:
 
 ```sh
-scripts/deploy-remote.sh user@your-server
+scripts/deploy-remote.sh -i ~/.ssh/id_ed25519 user@your-server
 ```
 
-That installs the service, the dummy example sites, and `/etc/ship-rs/sites.toml` for you to edit. It leaves the firewall alone and does not start Caddy. Details are in [docs/install.md](docs/install.md).
+The script uploads a Linux `x86_64` binary. `cargo build --release` on Windows writes `target/release/ship-rs.exe`, which the VPS cannot run. Use `prebuilt/ship`, or cross-compile with `cargo build --release --target x86_64-unknown-linux-gnu`.
+
+That installs the service, the dummy example sites, and `/etc/ship-rs/sites.toml`, and writes `/etc/caddy/Caddyfile`. It leaves the firewall alone. Caddy stays stopped while `base_domain` is `example.com`. Details are in [docs/install.md](docs/install.md).
 
 ## Docs
 

@@ -89,16 +89,18 @@ sudo systemctl reload caddy
 
 ## Install from your own machine
 
-`prebuilt/ship` is the `x86_64-unknown-linux-gnu` release binary (glibc 2.39 or newer). From a checkout on a computer that can already SSH to the VPS:
+`prebuilt/ship` is the `x86_64-unknown-linux-gnu` release binary (glibc 2.39 or newer). From a checkout on Linux, macOS, WSL, or Git Bash, on a computer that can already SSH to the VPS:
 
 ```sh
 scripts/deploy-remote.sh user@203.0.113.10
 scripts/deploy-remote.sh -p 22 -i ~/.ssh/id_ed25519 user@203.0.113.10
 ```
 
-The script checks that the server is x86_64 Arch with a new enough glibc, copies the binary, installs Caddy, rsync, and OpenSSL, creates the `ship-rs` user, and starts the loopback service. It copies the three dummy sites into `/srv/ship-rs/src` and `/srv/ship-rs/sites`, and writes `/etc/ship-rs/sites.toml` from `deploy/sites.arch.toml` when that file is not already there. A cookie key is generated in `/etc/ship-rs/ship-rs.env` on first install. An existing manifest or env file is left untouched.
+A Windows `cargo build --release` produces `ship-rs.exe`. The script ignores that file. It uploads the first Linux ELF it finds: `target/x86_64-unknown-linux-gnu/release/ship-rs`, then `target/release/ship-rs`, then `prebuilt/ship`.
 
-It does not open firewall ports and it does not start Caddy. Edit `base_domain`, `acme_email`, and `admins` in `/etc/ship-rs/sites.toml`, put the OAuth client id and secret in the env file, restart `ship-rs`, then run `ship-rs deploy --config /etc/ship-rs/sites.toml --reload` and `systemctl enable --now caddy`.
+The script checks that the server is x86_64 Arch with a new enough glibc, copies the binary, installs Caddy, rsync, and OpenSSL, creates the `ship-rs` user, and starts the loopback service. It copies the three dummy sites into `/srv/ship-rs/src` and `/srv/ship-rs/sites`, and writes `/etc/ship-rs/sites.toml` from `deploy/sites.arch.toml` when that file is not already there. A cookie key is generated in `/etc/ship-rs/ship-rs.env` on first install. An existing manifest or env file is left untouched. It writes `/etc/caddy/Caddyfile`.
+
+It does not open firewall ports. Caddy is started only when `base_domain` is not `example.com`. Edit `base_domain`, `acme_email`, and `admins` in `/etc/ship-rs/sites.toml`, put the OAuth client id and secret in the env file, restart `ship-rs`, then run `ship-rs deploy --config /etc/ship-rs/sites.toml --reload` and `systemctl enable --now caddy`.
 
 ## Local example
 

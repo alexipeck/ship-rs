@@ -5,14 +5,24 @@ usage() {
   cat <<'EOF'
 Usage: scripts/deploy-remote.sh [-p PORT] [-i IDENTITY] user@host
 
-Copy the committed x86_64-unknown-linux-gnu binary to an Arch Linux server
-and install the ship-rs service, the three dummy example sites, and
-/etc/ship-rs/sites.toml. An existing sites.toml or ship-rs.env is left
-in place. The firewall is not changed, and Caddy is not started.
+Run this from a checkout of the repo, on Linux, macOS, WSL, or Git Bash.
+It SSHes to an Arch Linux server, installs the Linux ship-rs binary, the
+example sites, and /etc/ship-rs/sites.toml, and writes /etc/caddy/Caddyfile.
+An existing sites.toml or ship-rs.env is left in place. The firewall is
+not changed. Caddy is started only when base_domain is not example.com.
+
+OpenSSH must be on your PATH. Pass -i when the key is not your SSH default.
 
   -p, --port       SSH port
   -i, --identity   SSH private key
   -h, --help       Show this help
+
+A binary built with cargo on Windows is ship-rs.exe and cannot run on the
+VPS. The script uploads, in order, the first ELF it finds:
+
+  target/x86_64-unknown-linux-gnu/release/ship-rs
+  target/release/ship-rs
+  prebuilt/ship
 
 Set SHIP_YES=1 to skip the confirmation prompt.
 EOF
@@ -64,21 +74,75 @@ if [ -z "$target" ] || [ "$#" -ne 1 ]; then
 fi
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-binary="$root/prebuilt/ship"
-checksum="$root/prebuilt/ship.sha256"
-if [ ! -f "$binary" ] || [ ! -f "$checksum" ]; then
-  echo "missing $binary" >&2
-  echo "the prebuilt binary is part of this checkout" >&2
+
+if ! command -v ssh >/dev/null 2>&1; then
+  echo "ssh is not on PATH. Install OpenSSH, then re-run." >&2
   exit 1
 fi
+if ! command -v tar >/dev/null 2>&1; then
+  echo "tar is not on PATH." >&2
+  exit 1
+fi
+
+is_elf() {
+  [ -f "$1" ] || return 1
+  command -v od >/dev/null 2>&1 || return 1
+  sig=$(od -An -t x1 -N 4 "$1" 2>/dev/null | tr -d ' \n')
+  [ "$sig" = "7f454c46" ]
+}
 
 file_sha256() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "$1" | awk '{ print $1 }'
-  else
+  elif command -v shasum >/dev/null 2>&1; then
     shasum -a 256 "$1" | awk '{ print $1 }'
+  else
+    echo "need sha256sum or shasum to check the binary" >&2
+    return 1
   fi
 }
+
+binary=""
+for candidate in \
+  "$root/target/x86_64-unknown-linux-gnu/release/ship-rs" \
+  "$root/target/release/ship-rs" \
+  "$root/prebuilt/ship"
+do
+  if is_elf "$candidate"; then
+    binary=$candidate
+    break
+  fi
+done
+if [ -z "$binary" ]; then
+  echo "no Linux ship-rs binary found." >&2
+  if [ -f "$root/target/release/ship-rs.exe" ]; then
+    echo "target/release/ship-rs.exe is a Windows build and cannot run on the VPS." >&2
+  fi
+  echo "Cross-compile with: cargo build --release --target x86_64-unknown-linux-gnu" >&2
+  echo "or use the Linux binary shipped at prebuilt/ship." >&2
+  exit 1
+fi
+echo "Using binary $binary"
+if [ "$binary" = "$root/prebuilt/ship" ]; then
+  checksum="$root/prebuilt/ship.sha256"
+  if [ ! -f "$checksum" ]; then
+    echo "missing $checksum" >&2
+    exit 1
+  fi
+  expected=$(tr -d '[:space:]' < "$checksum")
+  actual=$(file_sha256 "$binary")
+  if [ "$expected" != "$actual" ]; then
+    echo "prebuilt/ship does not match prebuilt/ship.sha256" >&2
+    exit 1
+  fi
+  if [ -f "$root/target/release/ship-rs.exe" ]; then
+    echo "Ignoring target/release/ship-rs.exe. That build is for Windows."
+  fi
+fi
+
+if [ -n "$identity" ] && [ -n "${MSYSTEM:-}" ] && command -v cygpath >/dev/null 2>&1; then
+  identity=$(cygpath -w "$identity")
+fi
 
 version_at_least() {
   need=$1
@@ -96,22 +160,22 @@ version_at_least() {
   }'
 }
 
-expected=$(tr -d '[:space:]' < "$checksum")
-actual=$(file_sha256 "$binary")
-if [ "$expected" != "$actual" ]; then
-  echo "prebuilt/ship does not match prebuilt/ship.sha256" >&2
-  exit 1
-fi
-
 run_ssh() {
+  # Git Bash rewrites /tmp and /etc inside arguments passed to Windows ssh.
+  # The assignment applies only to the ssh process, not to later tar/cp calls.
   if [ -n "$port" ] && [ -n "$identity" ]; then
-    ssh -o ConnectTimeout=20 -p "$port" -i "$identity" "$@"
+    set -- -o ConnectTimeout=20 -p "$port" -i "$identity" "$@"
   elif [ -n "$port" ]; then
-    ssh -o ConnectTimeout=20 -p "$port" "$@"
+    set -- -o ConnectTimeout=20 -p "$port" "$@"
   elif [ -n "$identity" ]; then
-    ssh -o ConnectTimeout=20 -i "$identity" "$@"
+    set -- -o ConnectTimeout=20 -i "$identity" "$@"
   else
-    ssh -o ConnectTimeout=20 "$@"
+    set -- -o ConnectTimeout=20 "$@"
+  fi
+  if [ -n "${MSYSTEM:-}" ]; then
+    MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL='*' command ssh "$@"
+  else
+    command ssh "$@"
   fi
 }
 
@@ -166,18 +230,17 @@ case "$remote" in
 esac
 
 echo "Uploading binary and example sites to $remote"
+stage=$(mktemp -d)
 archive=$(mktemp)
-trap 'rm -f "$archive"' EXIT
-tar -C "$root" -czf "$archive" \
-  prebuilt/ship \
-  prebuilt/ship.sha256 \
-  examples/public-hello \
-  examples/protected-hello \
-  examples/spa-demo \
-  deploy/ship.service \
-  deploy/ship.env.example \
-  deploy/sites.arch.toml \
-  scripts/remote-bootstrap.sh
+trap 'rm -rf "$stage" "$archive"' EXIT
+mkdir -p "$stage/prebuilt" "$stage/examples" "$stage/deploy" "$stage/scripts"
+cp "$binary" "$stage/prebuilt/ship"
+chmod 0755 "$stage/prebuilt/ship"
+file_sha256 "$stage/prebuilt/ship" > "$stage/prebuilt/ship.sha256"
+cp -a "$root/examples/public-hello" "$root/examples/protected-hello" "$root/examples/spa-demo" "$stage/examples/"
+cp "$root/deploy/ship.service" "$root/deploy/ship.env.example" "$root/deploy/sites.arch.toml" "$stage/deploy/"
+cp "$root/scripts/remote-bootstrap.sh" "$stage/scripts/"
+tar -C "$stage" -czf "$archive" prebuilt examples deploy scripts
 run_ssh "$target" "tar -xzf - -C '$remote'" < "$archive"
 
 status=0

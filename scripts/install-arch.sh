@@ -2,7 +2,8 @@
 set -eu
 
 if [ "$(id -u)" -ne 0 ]; then
-  echo "run scripts/install-arch.sh as root" >&2
+  echo "run scripts/install-arch.sh as root on the Arch server" >&2
+  echo "from another computer, run: scripts/deploy-remote.sh user@host" >&2
   exit 1
 fi
 
