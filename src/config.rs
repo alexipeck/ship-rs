@@ -654,7 +654,7 @@ allow = ["guest@example.com"]
     #[test]
     fn shipped_configs() {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        for rel in ["examples/sites.toml", "deploy/sites.toml.example"] {
+        for rel in ["examples/sites.toml", "deploy/sites.toml.example", "deploy/sites.arch.toml"] {
             let cfg = load(&root.join(rel)).unwrap_or_else(|e| panic!("{rel}: {e}"));
             assert_eq!(cfg.base_domain, "example.com");
             assert!(cfg.sites.len() >= 2, "{rel}");

@@ -1,0 +1,43 @@
+# Installed by scripts/deploy-remote.sh. Edit this file, then re-run deploy.
+# Change base_domain, acme_email, and admins before enabling Caddy.
+# OAuth client secrets belong in /etc/sitegate/sitegate.env, not here.
+# The three sites below are the dummy examples. Replace their files under
+# /srv/sitegate/src when you are ready to serve your own content.
+
+base_domain = "example.com"
+acme_email = "admin@example.com"
+tls = "auto"
+auth_upstream = "127.0.0.1:8091"
+caddyfile = "/etc/caddy/Caddyfile"
+
+admins = ["admin@example.com"]
+
+[hub]
+title = "Sites"
+deploy = "/srv/sitegate/hub"
+
+[[sites]]
+slug = "hello"
+title = "Public hello"
+source = "/srv/sitegate/src/hello"
+deploy = "/srv/sitegate/sites/hello"
+subdomain = "hello"
+public = true
+
+[[sites]]
+slug = "notes"
+title = "Protected hello"
+source = "/srv/sitegate/src/notes"
+deploy = "/srv/sitegate/sites/notes"
+subdomain = "notes"
+public = false
+allow = ["guest@example.com"]
+
+[[sites]]
+slug = "spa"
+title = "SPA demo"
+source = "/srv/sitegate/src/spa"
+deploy = "/srv/sitegate/sites/spa"
+subdomain = "spa"
+public = true
+spa = true

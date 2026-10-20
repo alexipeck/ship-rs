@@ -67,6 +67,16 @@ make release
 make test
 ```
 
+## Put it on an Arch server
+
+The release binary for `x86_64-unknown-linux-gnu` is in `prebuilt/sitegate`. From a machine that can SSH to the VPS:
+
+```sh
+scripts/deploy-remote.sh user@your-server
+```
+
+That installs the service, the dummy example sites, and `/etc/sitegate/sites.toml` for you to edit. It leaves the firewall alone and does not start Caddy. Details are in [docs/install.md](docs/install.md).
+
 ## Docs
 
 - [Install on Arch](docs/install.md)

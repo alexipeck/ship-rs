@@ -87,6 +87,19 @@ sudo systemctl reload caddy
 
 `scripts/deploy.sh /etc/sitegate/sites.toml` builds the release binary when `target/release/sitegate` is missing, then runs `deploy --reload`.
 
+## Install from your own machine
+
+`prebuilt/sitegate` is the `x86_64-unknown-linux-gnu` release binary (glibc 2.39 or newer). From a checkout on a computer that can already SSH to the VPS:
+
+```sh
+scripts/deploy-remote.sh user@203.0.113.10
+scripts/deploy-remote.sh -p 22 -i ~/.ssh/id_ed25519 user@203.0.113.10
+```
+
+The script checks that the server is x86_64 Arch with a new enough glibc, copies the binary, installs Caddy, rsync, and OpenSSL, creates the `sitegate` user, and starts the loopback service. It copies the three dummy sites into `/srv/sitegate/src` and `/srv/sitegate/sites`, and writes `/etc/sitegate/sites.toml` from `deploy/sites.arch.toml` when that file is not already there. A cookie key is generated in `/etc/sitegate/sitegate.env` on first install. An existing manifest or env file is left untouched.
+
+It does not open firewall ports and it does not start Caddy. Edit `base_domain`, `acme_email`, and `admins` in `/etc/sitegate/sites.toml`, put the OAuth client id and secret in the env file, restart `sitegate`, then run `sitegate deploy --config /etc/sitegate/sites.toml --reload` and `systemctl enable --now caddy`.
+
 ## Local example
 
 The example manifest is not an installation. It uses internal certificates and high ports so it can run beside a real web server:
