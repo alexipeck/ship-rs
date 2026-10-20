@@ -2,6 +2,8 @@ use std::collections::HashSet;
 use std::fs;
 use std::net::IpAddr;
 use std::path::{Component, Path, PathBuf};
+#[cfg(test)]
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
 
 use notify::Watcher;
@@ -409,6 +411,8 @@ struct Data {
 struct Shared {
     data: Mutex<Data>,
     watcher: Mutex<Option<notify::RecommendedWatcher>>,
+    #[cfg(test)]
+    refreshes: AtomicU64,
 }
 
 #[derive(Clone)]
@@ -430,6 +434,8 @@ impl Store {
                 read_err: None,
             }),
             watcher: Mutex::new(None),
+            #[cfg(test)]
+            refreshes: AtomicU64::new(0),
         });
         start_watch(&shared);
         Ok(Store { shared })
@@ -453,11 +459,14 @@ fn start_watch(shared: &Arc<Shared>) {
     let shared2 = Arc::clone(shared);
     let watch_path = path.clone();
     let watcher = notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
-        let relevant = match res {
-            Ok(event) => event.paths.is_empty() || event.paths.iter().any(|p| p == &watch_path),
-            Err(_) => true,
+        // A read emits Access (open, close). refresh() reads the file, so
+        // treating Access as a change reloads forever. Create, a data or
+        // rename modify, and remove are the events that can change the bytes,
+        // including an editor that renames a temp file onto this path.
+        let Ok(event) = res else {
+            return;
         };
-        if relevant {
+        if watcher_should_refresh(&event, &watch_path) {
             refresh(&shared2);
         }
     });
@@ -475,7 +484,26 @@ fn start_watch(shared: &Arc<Shared>) {
     }
 }
 
+fn watcher_should_refresh(event: &notify::Event, watch_path: &Path) -> bool {
+    if !event_kind_reloads(event.kind) {
+        return false;
+    }
+    event.paths.is_empty() || event.paths.iter().any(|path| path == watch_path)
+}
+
+fn event_kind_reloads(kind: notify::EventKind) -> bool {
+    match kind {
+        notify::EventKind::Create(_) | notify::EventKind::Remove(_) => true,
+        notify::EventKind::Modify(notify::event::ModifyKind::Data(_)) => true,
+        notify::EventKind::Modify(notify::event::ModifyKind::Name(_)) => true,
+        notify::EventKind::Access(_) | notify::EventKind::Any | notify::EventKind::Other => false,
+        notify::EventKind::Modify(_) => false,
+    }
+}
+
 fn refresh(shared: &Shared) {
+    #[cfg(test)]
+    shared.refreshes.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
     let mut data = shared.data.lock().unwrap_or_else(|e| e.into_inner());
     let bytes = match fs::read(&data.path) {
         Ok(b) => b,
@@ -739,6 +767,58 @@ allow = ["someone@example.com"]
         assert_eq!(cfg.authorize("notes.example.com", "guest@example.com", true).1, Access::Denied);
         fs::remove_file(&path).unwrap();
         assert_eq!(store.current().authorize("notes.example.com", "owner@example.com", true).1, Access::Allowed);
+    }
+
+    #[test]
+    fn reads_do_not_spin_the_watcher() {
+        use std::sync::atomic::Ordering;
+        use std::thread;
+        use std::time::Duration;
+
+        let (dir, path) = write_toml(base_toml());
+        let store = Store::open(&path).unwrap();
+        let before = store.shared.refreshes.load(Ordering::SeqCst);
+        let _ = store.current();
+        for _ in 0..40 {
+            fs::read(&path).unwrap();
+        }
+        thread::sleep(Duration::from_millis(300));
+        let after_reads = store.shared.refreshes.load(Ordering::SeqCst);
+        let reads = after_reads.saturating_sub(before);
+        assert!(reads < 5, "reading the config refreshed {reads} times");
+
+        let removed = base_toml().replacen("allow = [\"Guest@Example.com\"]", "allow = []", 1);
+        fs::write(&path, removed).unwrap();
+        wait_until(Duration::from_secs(2), || {
+            let cfg = store.shared.data.lock().unwrap_or_else(|e| e.into_inner()).current.clone();
+            cfg.authorize("notes.example.com", "guest@example.com", true).1 == Access::Denied
+        });
+        thread::sleep(Duration::from_millis(300));
+        let after_write = store.shared.refreshes.load(Ordering::SeqCst);
+        let writes = after_write.saturating_sub(after_reads);
+        assert!(writes > 0, "a write did not refresh");
+        assert!(writes < 15, "a write refreshed {writes} times");
+
+        let tmp = dir.path().join("sites.toml.next");
+        fs::write(&tmp, base_toml()).unwrap();
+        fs::rename(&tmp, &path).unwrap();
+        wait_until(Duration::from_secs(2), || {
+            let cfg = store.shared.data.lock().unwrap_or_else(|e| e.into_inner()).current.clone();
+            cfg.authorize("notes.example.com", "guest@example.com", true).1 == Access::Allowed
+        });
+    }
+
+    fn wait_until(limit: std::time::Duration, mut ready: impl FnMut() -> bool) {
+        let deadline = std::time::Instant::now() + limit;
+        loop {
+            if ready() {
+                return;
+            }
+            if std::time::Instant::now() >= deadline {
+                panic!("timed out waiting for the config watcher");
+            }
+            std::thread::sleep(std::time::Duration::from_millis(20));
+        }
     }
 
     #[test]
