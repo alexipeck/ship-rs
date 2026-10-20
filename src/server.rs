@@ -16,6 +16,7 @@ use crate::dnsname::{self, split_host_port};
 use crate::identity;
 use crate::oauth::{self, OauthError};
 use crate::pages::{self, DenyView, LoginView};
+use crate::theme::Appearance;
 use crate::returnurl;
 use crate::secrets::Secrets;
 use crate::session::{self, Session, SessionError};
@@ -149,7 +150,7 @@ async fn home(State(svc): State<Service>, headers: HeaderMap, uri: Uri) -> Respo
         email: &email,
         provider: &provider,
         sign_out_return: &sign_out,
-    });
+    }, &cfg.appearance);
     html(status, &pages::csp_self(), body)
 }
 
@@ -159,7 +160,7 @@ async fn begin(State(svc): State<Service>, Path(provider): Path<String>, uri: Ur
     }
     let cfg = svc.store.current();
     if !provider_on(&svc, &provider) {
-        return message(StatusCode::SERVICE_UNAVAILABLE, "Sign-in unavailable", &format!("{} sign-in is not configured.", identity::provider_label(&provider)));
+        return message(StatusCode::SERVICE_UNAVAILABLE, "Unavailable", "", &cfg.appearance);
     }
     let raw = query_param(&uri, "return");
     let ret = if raw.trim().is_empty() {
@@ -169,18 +170,18 @@ async fn begin(State(svc): State<Service>, Path(provider): Path<String>, uri: Ur
             Ok(v) => v,
             Err(_) => {
                 tracing::info!("rejected return url");
-                return message(StatusCode::BAD_REQUEST, "Sign in", "The return address is not allowed.");
+                return message(StatusCode::BAD_REQUEST, "Invalid link", "", &cfg.appearance);
             }
         }
     };
     let Ok(state) = random_string(32) else {
-        return message(StatusCode::INTERNAL_SERVER_ERROR, "Sign in", "Sign-in could not be completed.");
+        return message(StatusCode::INTERNAL_SERVER_ERROR, "Sign-in failed", "", &cfg.appearance);
     };
     let Ok(nonce) = random_string(32) else {
-        return message(StatusCode::INTERNAL_SERVER_ERROR, "Sign in", "Sign-in could not be completed.");
+        return message(StatusCode::INTERNAL_SERVER_ERROR, "Sign-in failed", "", &cfg.appearance);
     };
     let Ok(verifier) = random_string(32) else {
-        return message(StatusCode::INTERNAL_SERVER_ERROR, "Sign in", "Sign-in could not be completed.");
+        return message(StatusCode::INTERNAL_SERVER_ERROR, "Sign-in failed", "", &cfg.appearance);
     };
     let exp = (svc.now)() + Duration::from_secs(10 * 60);
     let sealed = match svc.secrets.keys.seal_oauth(&session::OAuthState {
@@ -192,7 +193,7 @@ async fn begin(State(svc): State<Service>, Path(provider): Path<String>, uri: Ur
         expires: exp,
     }) {
         Ok(v) => v,
-        Err(_) => return message(StatusCode::INTERNAL_SERVER_ERROR, "Sign in", "Sign-in could not be completed."),
+        Err(_) => return message(StatusCode::INTERNAL_SERVER_ERROR, "Sign-in failed", "", &cfg.appearance),
     };
     let redirect = format!("{}{}", cfg.auth_origin(), callback_path(&provider));
     let auth_url = match svc.oauth.auth_url(&provider, &redirect, &state, &verifier, &nonce).await {
@@ -200,7 +201,7 @@ async fn begin(State(svc): State<Service>, Path(provider): Path<String>, uri: Ur
         Err(err) => {
             let reference = new_ref();
             tracing::error!(reference, error = %err, "login start failed");
-            return message(StatusCode::BAD_GATEWAY, "Sign in", &format!("Sign-in could not be completed. Reference {reference}."));
+            return message(StatusCode::BAD_GATEWAY, "Sign-in failed", &reference, &cfg.appearance);
         }
     };
     redirect_found(&auth_url, &[session::oauth_cookie(&sealed)])
@@ -214,34 +215,34 @@ async fn finish(State(svc): State<Service>, Path(provider): Path<String>, header
     let err = query_param(&uri, "error");
     if !err.is_empty() {
         let page = if err == "access_denied" {
-            message(StatusCode::BAD_REQUEST, "Sign in", "Sign-in was cancelled.")
+            message(StatusCode::BAD_REQUEST, "Cancelled", "", &cfg.appearance)
         } else {
-            message(StatusCode::BAD_REQUEST, "Sign in", "Sign-in could not be completed.")
+            message(StatusCode::BAD_REQUEST, "Sign-in failed", "", &cfg.appearance)
         };
         return with_cookies(page, &[session::clear_oauth_cookie()]);
     }
     let code = query_param(&uri, "code");
     let state = query_param(&uri, "state");
     if code.is_empty() || state.is_empty() || code.len() > 2048 || state.len() > 512 {
-        let page = message(StatusCode::BAD_REQUEST, "Sign in", "Sign-in could not be completed.");
+        let page = message(StatusCode::BAD_REQUEST, "Sign-in failed", "", &cfg.appearance);
         return with_cookies(page, &[session::clear_oauth_cookie()]);
     }
     let Some(raw_cookie) = cookie_value(&headers, session::OAUTH_COOKIE_NAME) else {
-        return message(StatusCode::BAD_REQUEST, "Sign in", "Sign-in could not be completed.");
+        return message(StatusCode::BAD_REQUEST, "Sign-in failed", "", &cfg.appearance);
     };
     let opened = svc.secrets.keys.open_oauth(&raw_cookie, (svc.now)());
     let page_clear = session::clear_oauth_cookie();
     let st = match opened {
         Ok(st) if st.provider == provider && session::const_eq(&st.state, &state) => st,
         _ => {
-            let page = message(StatusCode::BAD_REQUEST, "Sign in", "Sign-in could not be completed.");
+            let page = message(StatusCode::BAD_REQUEST, "Sign-in failed", "", &cfg.appearance);
             return with_cookies(page, &[page_clear]);
         }
     };
     let ret = match returnurl::validate(&st.return_to, &cfg.base_domain) {
         Ok(v) => v,
         Err(_) => {
-            let page = message(StatusCode::BAD_REQUEST, "Sign in", "The return address is not allowed.");
+            let page = message(StatusCode::BAD_REQUEST, "Invalid link", "", &cfg.appearance);
             return with_cookies(page, &[page_clear]);
         }
     };
@@ -249,7 +250,7 @@ async fn finish(State(svc): State<Service>, Path(provider): Path<String>, header
     let email = match svc.oauth.complete(&provider, &redirect, &code, &st.verifier, &st.nonce).await {
         Ok(email) => email,
         Err(err) => {
-            let page = login_error(err);
+            let page = login_error(err, &cfg.appearance);
             return with_cookies(page, &[page_clear]);
         }
     };
@@ -262,7 +263,7 @@ async fn finish(State(svc): State<Service>, Path(provider): Path<String>, header
     }) {
         Ok(v) => v,
         Err(_) => {
-            let page = message(StatusCode::INTERNAL_SERVER_ERROR, "Sign in", "Sign-in could not be completed.");
+            let page = message(StatusCode::INTERNAL_SERVER_ERROR, "Sign-in failed", "", &cfg.appearance);
             return with_cookies(page, &[page_clear]);
         }
     };
@@ -294,8 +295,9 @@ async fn logout(State(svc): State<Service>, headers: HeaderMap, body: axum::body
     redirect_see_other(&ret, &[session::clear_session_cookie(&cfg.base_domain)])
 }
 
-async fn logout_help() -> Response {
-    message(StatusCode::METHOD_NOT_ALLOWED, "Sign out", "Use the sign-out button.")
+async fn logout_help(State(svc): State<Service>) -> Response {
+    let cfg = svc.store.current();
+    message(StatusCode::METHOD_NOT_ALLOWED, "Sign out", "", &cfg.appearance)
 }
 
 async fn check(State(svc): State<Service>, headers: HeaderMap) -> Response {
@@ -322,7 +324,7 @@ async fn check(State(svc): State<Service>, headers: HeaderMap) -> Response {
             if !html_wanted {
                 return plain(StatusCode::UNAUTHORIZED, "401 Sign in required\n");
             }
-            sign_in_required(&headers, &cfg, site.as_ref().map(|s| s.title.as_str()).unwrap_or("This site"))
+            sign_in_required(&headers, &cfg)
         }
         Access::Denied => {
             tracing::info!(host = %host, result = "deny", email = %email, "check");
@@ -342,19 +344,19 @@ async fn check(State(svc): State<Service>, headers: HeaderMap) -> Response {
             if !html_wanted {
                 return plain(StatusCode::FORBIDDEN, "403 Access denied\n");
             }
-            message(StatusCode::FORBIDDEN, "Unavailable", "This site is not available.")
+            message(StatusCode::FORBIDDEN, "Unavailable", "", &cfg.appearance)
         }
     }
 }
 
 const UNIX_FALLBACK: SystemTime = SystemTime::UNIX_EPOCH;
 
-fn sign_in_required(headers: &HeaderMap, cfg: &Config, title: &str) -> Response {
+fn sign_in_required(headers: &HeaderMap, cfg: &Config) -> Response {
     let mut target = format!("{}/", cfg.auth_origin());
     if let Ok(orig) = original_url(headers, &cfg.base_domain) {
         target = format!("{}/?return={}", cfg.auth_origin(), query_escape(&orig));
     }
-    html(StatusCode::UNAUTHORIZED, &pages::csp_auth(&cfg.auth_origin()), pages::sign_in_page(title, &target))
+    html(StatusCode::UNAUTHORIZED, &pages::csp_auth(&cfg.auth_origin()), pages::sign_in_page(&target, &cfg.appearance))
 }
 
 fn access_denied(headers: &HeaderMap, cfg: &Config, title: &str, sess: &Session) -> Response {
@@ -374,18 +376,18 @@ fn access_denied(headers: &HeaderMap, cfg: &Config, title: &str, sess: &Session)
             logout_url: &format!("{}/logout", cfg.auth_origin()),
             sign_out_return: &sign_out,
             switch_return: &switch_to,
-        }),
+        }, &cfg.appearance),
     )
 }
 
-fn login_error(err: OauthError) -> Response {
+fn login_error(err: OauthError, look: &Appearance) -> Response {
     match err {
-        OauthError::EmailUnverified => message(StatusCode::BAD_REQUEST, "Sign in", "That account's email is not verified."),
-        OauthError::NoPrimaryEmail => message(StatusCode::BAD_REQUEST, "Sign in", "GitHub did not provide a verified primary email."),
+        OauthError::EmailUnverified => message(StatusCode::BAD_REQUEST, "Email not verified", "", look),
+        OauthError::NoPrimaryEmail => message(StatusCode::BAD_REQUEST, "No primary email", "", look),
         other => {
             let reference = new_ref();
             tracing::error!(reference, error = %other, "login failed");
-            message(StatusCode::BAD_GATEWAY, "Sign in", &format!("Sign-in could not be completed. Reference {reference}."))
+            message(StatusCode::BAD_GATEWAY, "Sign-in failed", &reference, look)
         }
     }
 }
@@ -493,8 +495,8 @@ fn html(status: StatusCode, csp: &str, body: String) -> Response {
         .unwrap()
 }
 
-fn message(status: StatusCode, title: &str, text: &str) -> Response {
-    html(status, pages::csp_self(), pages::message_page(title, text))
+fn message(status: StatusCode, title: &str, detail: &str, look: &Appearance) -> Response {
+    html(status, pages::csp_self(), pages::message_page(title, detail, look))
 }
 
 fn plain(status: StatusCode, body: &str) -> Response {
@@ -932,6 +934,8 @@ allow = ["owner@example.com"]
         assert!(body.contains("Sign-in required"), "{body}");
         assert!(!body.contains("Draft"), "{body}");
         assert!(!body.contains("Vault"), "{body}");
+        assert!(!body.to_ascii_lowercase().contains("ship-rs"), "{body}");
+        assert!(!body.contains("Private sites ask you to sign in"), "{body}");
 
         let as_guest = Request::builder()
             .method("GET")
@@ -969,7 +973,9 @@ allow = ["owner@example.com"]
 
         let login = Request::builder().method("GET").uri("/").body(Body::empty()).unwrap();
         let (_, _, body) = do_req(svc.router(), login).await;
-        assert!(body.contains("Sign in"), "{body}");
+        assert!(body.contains("Sign in with Google"), "{body}");
+        assert!(body.contains("Sign in with GitHub"), "{body}");
+        assert!(!body.contains("you can sign in"), "{body}");
         assert!(!body.contains("Public hello"), "{body}");
     }
 

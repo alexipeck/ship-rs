@@ -25,7 +25,8 @@ ship-rs deploy --config /etc/ship-rs/sites.toml --reload
 | `caddy_admin` | Empty uses Caddy's localhost admin port. `off` disables it. Any other value must be loopback. |
 | `preview_addr` | Optional loopback address. Caddy serves only the hub there, over HTTP. |
 | `admins` | Emails allowed on every protected site. |
-| `hub.title`, `hub.deploy` | Hub heading and the directory that receives `index.html`. |
+| `hub.title`, `hub.deploy` | Hub heading and the directory that receives `index.html`. Default heading is `Sites`. |
+| `appearance` | Optional look of the hub and the sign-in pages. See below. |
 | `sites` | One table per site. |
 
 Each site needs `slug`, `title`, `deploy`, `subdomain`, and `visibility`. `enabled` defaults to true. `spa` defaults to false. `source` is the directory `deploy` syncs from. `build` is an optional shell command, at most 2000 characters and without newlines, run in that directory before the sync. `allow` is the email list for a site that is not public.
@@ -44,7 +45,28 @@ Older manifests can still say `public = true` or `public = false`. `public = tru
 
 `spa = true` adds `try_files {path} /index.html` so a client route still returns the site. `enabled = false` omits the site from Caddy and from the hub.
 
-The apex is proxied to ship-rs, which builds the list for that request. Anonymous visitors see `public` and `private-listed` sites. A signed-in admin sees every `private` site. A signed-in address sees a `private` site only when that address is on that site's allowlist. The list does not print allowlists or admin addresses. Disabled sites are omitted. `generate` still writes an anonymous copy of the list for the preview address.
+The apex is proxied to ship-rs, which builds the list for that request. Anonymous visitors see `public` and `private-listed` sites. A signed-in admin sees every `private` site. A signed-in address sees a `private` site only when that address is on that site's allowlist. The list does not print allowlists or admin addresses. A site that is not public shows a `Sign-in required` tag. Disabled sites are omitted. `generate` still writes an anonymous copy of the list for the preview address.
+
+### Appearance
+
+`[appearance]` is optional. Leave it out and the pages use the defaults. Unknown keys are rejected. A bad value is a validation error.
+
+| Field | Values | Default |
+| --- | --- | --- |
+| `preset` | `ink`, `harbor`, `grove`, `ember` | `ink` |
+| `mode` | `light`, `dark`, `auto` | `auto` |
+| `accent` | A quoted hex colour, `#rgb` or `#rrggbb` | The preset's own accent |
+
+`auto` follows the visitor's `prefers-color-scheme`. `accent` recolours primary buttons such as Sign in and Sign out. The Google and GitHub buttons keep their own colours. `hub.title` stays in `[hub]`.
+
+```toml
+[appearance]
+preset = "harbor"
+mode = "auto"
+accent = "#0b6e4f"
+```
+
+The running process reads `[appearance]` and `hub.title` with the rest of the manifest. The next request uses the new look. You do not reload Caddy for that. `generate` rewrites the anonymous preview hub so it matches. It does not change the Caddyfile.
 
 ## Add a site
 
@@ -90,11 +112,11 @@ Removing an email takes effect the same way: the next request from that account 
 
 ## What a visitor sees
 
-Opening a protected site while signed out does not bounce the browser to Google or GitHub. Caddy returns the sign-in page from `/check`, with one button that goes to `https://auth.example.com/?return=...`. After a successful login the browser returns to the original URL.
+Opening a protected site while signed out does not bounce the browser to Google or GitHub. `/check` returns a page that says `Sign-in required`, with one button to `https://auth.example.com/?return=...`. That sign-in page shows one button per configured provider and stays put until the visitor chooses one. After a successful login the browser returns to the original URL.
 
-The return address has to be `https`, at most 2048 characters, with no userinfo and no newline or backslash. The host must be the apex or a subdomain of `base_domain`. Anything else is a 400 and is not echoed back.
+The return address has to be `https`, at most 2048 characters, with no userinfo and no newline or backslash. The host must be the apex or a subdomain of `base_domain`. Anything else is a 400 titled `Invalid link` and is not echoed back.
 
-A signed-in account that is not on the list sees an access-denied page that names the account and offers sign-out and a switch to another account. Requests that do not look like a document navigation get a plain `401 Sign in required` or `403 Access denied` with no HTML and no `Location` header.
+A signed-in account that is not allowed sees `Access denied`, that account's email, and buttons to sign out or use a different account. Requests that do not look like a document navigation get a plain `401 Sign in required` or `403 Access denied` with no HTML and no `Location` header.
 
 Sign-out is `POST /logout`. The `Origin` or `Referer` must be HTTPS on the apex or a subdomain. A bad origin is `403` and the cookie is left in place.
 
@@ -125,7 +147,7 @@ scripts/deploy-remote.sh --binary-only -i ~/.ssh/id_ed25519 user@your-server
 scripts/deploy-remote.sh -b --regen user@your-server
 ```
 
-`SHIP_YES=1` skips the confirmation prompt. Restart `ship-rs` when the binary or the env file changes. Reload Caddy when the Caddyfile changes. An allowlist-only edit needs neither.
+`SHIP_YES=1` skips the confirmation prompt. Restart `ship-rs` when the binary or the env file changes. Reload Caddy when the Caddyfile changes. An allowlist edit, `hub.title`, or `[appearance]` needs neither: the running process re-reads `sites.toml`. A binary that only changes those pages does not change the Caddyfile, so `--regen` is not required after installing it. Run `generate` when you also want the on-disk preview hub rewritten.
 
 To rotate the cookie key, set `SHIP_COOKIE_KEY_PREVIOUS` to the old value, put the new value in `SHIP_COOKIE_KEY`, and restart. Existing sessions still open. New sessions are sealed with the new key. Remove the previous key on a later restart.
 

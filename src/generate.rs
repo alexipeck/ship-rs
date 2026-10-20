@@ -174,14 +174,17 @@ pub fn hub_html_for(cfg: &Config, email: Option<&str>) -> String {
     let mut sites = String::new();
     let listed = cfg.hub_sites(email);
     if listed.is_empty() {
-        sites.push_str("<p class=\"card\">No sites are listed.</p>\n");
+        sites.push_str("<p class=\"empty\">No sites</p>\n");
     } else {
         sites.push_str("<ul class=\"sites\">\n");
         for site in &listed {
-            let (class, badge) = site.visibility.badge();
+            let badge = match site.visibility.badge() {
+                Some(label) => format!("<span class=\"badge\">{label}</span>\n"),
+                None => String::new(),
+            };
             let _ = write!(
                 sites,
-                "<li>\n<a href=\"{}\">\n<span class=\"title\">{}</span>\n<span class=\"host\">{}</span>\n</a>\n<span class=\"badge {class}\">{badge}</span>\n</li>\n",
+                "<li>\n<a href=\"{}\">\n<span class=\"name\"><span class=\"title\">{}</span><span class=\"host\">{}</span></span>\n{badge}</a>\n</li>\n",
                 esc(&cfg.site_origin(site)),
                 esc(&site.title),
                 esc(&cfg.display_host(&site.fqdn))
@@ -189,13 +192,8 @@ pub fn hub_html_for(cfg: &Config, email: Option<&str>) -> String {
         }
         sites.push_str("</ul>\n");
     }
-    format!(
-        "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>{}</title>\n<style>{}</style>\n</head>\n<body>\n<main>\n<p class=\"mark\">ship-rs</p>\n<h1>{}</h1>\n<p class=\"lede\">Sites on {}. Private sites ask you to sign in.</p>\n{sites}</main>\n</body>\n</html>\n",
-        esc(&cfg.hub.title),
-        pages::css(),
-        esc(&cfg.hub.title),
-        esc(&cfg.base_domain)
-    )
+    let body = format!("<h1>{}</h1>\n{sites}", esc(&cfg.hub.title));
+    pages::document(&cfg.hub.title, &body, &cfg.appearance, false, false)
 }
 
 pub fn write(cfg: &Config) -> Result<(), String> {
@@ -302,6 +300,10 @@ enabled = false
         assert!(!hub.contains("Retired"));
         assert!(hub.contains("Sign-in required"));
         assert!(hub.contains("https://notes.example.com:18443/"));
+        assert!(!hub.to_ascii_lowercase().contains("ship-rs"), "{hub}");
+        assert!(!hub.contains("Private sites ask you to sign in"), "{hub}");
+        assert!(!hub.contains(">Public<"), "{hub}");
+        assert!(hub.contains("preset-ink mode-auto"), "{hub}");
     }
 
     fn between<'a>(file: &'a str, start: &str, end: &str) -> &'a str {

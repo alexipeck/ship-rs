@@ -176,6 +176,8 @@ fn validate_cmd(config_path: &str) -> Result<(), String> {
     println!("auth origin: {}", cfg.auth_origin());
     println!("admins: {}", cfg.admins.join(", "));
     println!("hub: {}", cfg.hub.deploy.display());
+    let accent = cfg.appearance.accent.map(|c| format!(" {}", c.css())).unwrap_or_default();
+    println!("appearance: {} {}{accent}", cfg.appearance.preset.as_str(), cfg.appearance.mode.as_str());
     println!("caddyfile: {}", cfg.caddyfile.display());
     if !cfg.preview_addr.is_empty() {
         println!("preview: http://{}", cfg.preview_addr);

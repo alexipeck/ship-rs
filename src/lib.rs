@@ -11,6 +11,7 @@ pub mod secrets;
 pub mod server;
 pub mod session;
 pub mod testidp;
+pub mod theme;
 pub mod version;
 
 mod pages;

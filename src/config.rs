@@ -12,6 +12,7 @@ use sha2::{Digest, Sha256};
 
 use crate::dnsname::{self, split_host_port};
 use crate::identity;
+use crate::theme::{self, Appearance};
 
 pub const DEFAULT_AUTH_UPSTREAM: &str = "127.0.0.1:8091";
 pub const TLS_AUTO: &str = "auto";
@@ -47,11 +48,10 @@ impl Visibility {
         self == Self::Public
     }
 
-    pub fn badge(self) -> (&'static str, &'static str) {
+    pub fn badge(self) -> Option<&'static str> {
         match self {
-            Self::Public => ("public", "Public"),
-            Self::Private => ("protected", "Private"),
-            Self::PrivateListed => ("protected", "Sign-in required"),
+            Self::Public => None,
+            Self::Private | Self::PrivateListed => Some("Sign-in required"),
         }
     }
 }
@@ -70,6 +70,7 @@ pub struct Config {
     pub preview_addr: String,
     pub admins: Vec<String>,
     pub hub: Hub,
+    pub appearance: Appearance,
     pub sites: Vec<Site>,
 }
 
@@ -119,7 +120,20 @@ struct FileConfig {
     #[serde(default)]
     hub: FileHub,
     #[serde(default)]
+    appearance: FileAppearance,
+    #[serde(default)]
     sites: Vec<FileSite>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct FileAppearance {
+    #[serde(default)]
+    preset: String,
+    #[serde(default)]
+    mode: String,
+    #[serde(default)]
+    accent: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -212,6 +226,11 @@ impl FileConfig {
             title = "Sites".into();
         }
         valid_title(&title).map_err(|e| format!("hub.title: {e}"))?;
+        let appearance = Appearance {
+            preset: theme::parse_preset(&self.appearance.preset)?,
+            mode: theme::parse_mode(&self.appearance.mode)?,
+            accent: theme::parse_accent(&self.appearance.accent)?,
+        };
         let caddyfile = if self.caddyfile.is_empty() {
             PathBuf::new()
         } else {
@@ -230,6 +249,7 @@ impl FileConfig {
             preview_addr: self.preview_addr,
             admins,
             hub: Hub { title, deploy: hub_deploy.clone() },
+            appearance,
             sites: Vec::new(),
         };
         let mut seen_slug = HashSet::new();
@@ -818,6 +838,43 @@ allow = ["someone@example.com"]
                 panic!("timed out waiting for the config watcher");
             }
             std::thread::sleep(std::time::Duration::from_millis(20));
+        }
+    }
+
+    #[test]
+    fn appearance_options() {
+        use crate::theme::{ColorMode, Preset, Rgb};
+
+        let (_dir, path) = write_toml(base_toml());
+        assert_eq!(load(&path).unwrap().appearance, Appearance::default());
+
+        let empty = format!("{}\n[appearance]\n", base_toml());
+        let (_dir, path) = write_toml(&empty);
+        assert_eq!(load(&path).unwrap().appearance, Appearance::default());
+
+        let set = format!("{}\n[appearance]\npreset = \"Harbor\"\nmode = \"dark\"\naccent = \"#0B6E4F\"\n", base_toml());
+        let (_dir, path) = write_toml(&set);
+        let look = load(&path).unwrap().appearance;
+        assert_eq!(look.preset, Preset::Harbor);
+        assert_eq!(look.mode, ColorMode::Dark);
+        assert_eq!(look.accent, Some(Rgb { r: 0x0b, g: 0x6e, b: 0x4f }));
+
+        let short = format!("{}\n[appearance]\naccent = \"#abc\"\n", base_toml());
+        let (_dir, path) = write_toml(&short);
+        assert_eq!(load(&path).unwrap().appearance.accent, Some(Rgb { r: 0xaa, g: 0xbb, b: 0xcc }));
+
+        let cases = [
+            ("[appearance]\npreset = \"neon\"\n", "appearance.preset \"neon\" must be ink, harbor, grove, or ember"),
+            ("[appearance]\nmode = \"dim\"\n", "appearance.mode \"dim\" must be light, dark, or auto"),
+            ("[appearance]\naccent = \"green\"\n", "appearance.accent must be a hex color like #1f4b3a"),
+            ("[appearance]\naccent = \"#12\"\n", "appearance.accent must be a hex color like #1f4b3a"),
+            ("[appearance]\nfont = \"serif\"\n", "unknown field"),
+        ];
+        for (extra, needle) in cases {
+            let body = format!("{}\n{extra}", base_toml());
+            let (_dir, path) = write_toml(&body);
+            let err = load(&path).unwrap_err();
+            assert!(err.contains(needle), "{extra}\n{err}");
         }
     }
 

@@ -16,6 +16,11 @@ admins = ["admin@example.com"]
 title = "Sites"
 deploy = "/srv/ship-rs/hub"
 
+# [appearance]
+# preset = "ink"       # ink, harbor, grove, ember
+# mode = "auto"        # light, dark, auto
+# accent = "#1a1a1a"   # optional quoted #rgb or #rrggbb
+
 [[sites]]
 slug = "hello"
 title = "Public hello"

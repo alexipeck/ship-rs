@@ -19,6 +19,11 @@ admins = ["owner@example.com"]
 title = "Example sites"
 deploy = "dist/hub"
 
+[appearance]
+preset = "ink"
+mode = "auto"
+# accent = "#1a1a1a"
+
 [[sites]]
 slug = "hello"
 title = "Public hello"
