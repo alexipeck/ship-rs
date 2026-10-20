@@ -18,8 +18,8 @@ If `https_port` is not 443, the port is part of the origin (`https://auth.exampl
 5. Copy the client id and client secret into `/etc/ship-rs/ship-rs.env`:
 
 ```
-SHIP_RS_GOOGLE_CLIENT_ID=....apps.googleusercontent.com
-SHIP_RS_GOOGLE_CLIENT_SECRET=...
+SHIP_GOOGLE_CLIENT_ID=....apps.googleusercontent.com
+SHIP_GOOGLE_CLIENT_SECRET=...
 ```
 
 ship-rs discovers `https://accounts.google.com`, sends a PKCE S256 challenge and a nonce, and verifies the ID token against Google's keys. `email_verified` must be JSON `true` or the string `"true"`. An unverified address is refused.
@@ -32,8 +32,8 @@ ship-rs discovers `https://accounts.google.com`, sends a PKCE S256 challenge and
 4. Copy the client id and generate a client secret into the env file:
 
 ```
-SHIP_RS_GITHUB_CLIENT_ID=...
-SHIP_RS_GITHUB_CLIENT_SECRET=...
+SHIP_GITHUB_CLIENT_ID=...
+SHIP_GITHUB_CLIENT_SECRET=...
 ```
 
 After the token exchange, ship-rs calls `GET https://api.github.com/user/emails` with the access token. It accepts the account only when the response contains exactly one primary email and that email is verified. A verified secondary address is not used. The request sends `User-Agent: ship-rs` and `Accept: application/vnd.github+json`, and it will not follow a redirect off GitHub's host.
@@ -52,4 +52,4 @@ Allowlist edits do not need a restart. See [operations.md](operations.md).
 
 ## Overrides
 
-`SHIP_RS_OIDC_ISSUER`, `SHIP_RS_GITHUB_AUTH_URL`, `SHIP_RS_GITHUB_TOKEN_URL`, and `SHIP_RS_GITHUB_EMAILS_URL` replace the provider endpoints. ship-rs refuses to start when any of them differ from the defaults unless `SHIP_RS_ALLOW_UNSAFE_OAUTH_OVERRIDES=1`. Even then, an `http` URL is accepted only for loopback. Leave the overrides unset on the VPS. They exist so tests can point at a local mock.
+`SHIP_OIDC_ISSUER`, `SHIP_GITHUB_AUTH_URL`, `SHIP_GITHUB_TOKEN_URL`, and `SHIP_GITHUB_EMAILS_URL` replace the provider endpoints. ship-rs refuses to start when any of them differ from the defaults unless `SHIP_ALLOW_UNSAFE_OAUTH_OVERRIDES=1`. Even then, an `http` URL is accepted only for loopback. Leave the overrides unset on the VPS. They exist so tests can point at a local mock.

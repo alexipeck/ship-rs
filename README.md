@@ -51,7 +51,7 @@ Crates, and why these ones:
 | `/srv/ship-rs/sites/<slug>` | Deployed files Caddy serves. |
 | `/srv/ship-rs/src/<slug>` | Optional source tree the deploy command builds and syncs. |
 
-`deploy/sites.toml.example` and `deploy/ship-rs.env.example` are the templates. `examples/sites.toml` and `examples/public-hello`, `examples/protected-hello`, and `examples/spa-demo` are dummy sites for a local run. Point a production manifest at `/srv/ship-rs`, not at this repository.
+`deploy/sites.toml.example` and `deploy/ship.env.example` are the templates. `examples/sites.toml` and `examples/public-hello`, `examples/protected-hello`, and `examples/spa-demo` are dummy sites for a local run. Point a production manifest at `/srv/ship-rs`, not at this repository.
 
 ## Try the example
 
@@ -69,7 +69,7 @@ make test
 
 ## Put it on an Arch server
 
-The release binary for `x86_64-unknown-linux-gnu` is in `prebuilt/ship-rs`. From a machine that can SSH to the VPS:
+The release binary for `x86_64-unknown-linux-gnu` is in `prebuilt/ship`. From a machine that can SSH to the VPS:
 
 ```sh
 scripts/deploy-remote.sh user@your-server

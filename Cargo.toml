@@ -9,6 +9,10 @@ rust-version = "1.85"
 description = "Self-hosted static sites on subdomains with Google and GitHub sign-in"
 publish = false
 
+[lib]
+name = "ship"
+path = "src/lib.rs"
+
 [dependencies]
 axum = "0.8"
 base64 = "0.22"

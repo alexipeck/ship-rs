@@ -37,7 +37,7 @@ ship-rs version
 ```sh
 sudo install -d -m 0755 /etc/ship-rs /srv/ship-rs/hub /srv/ship-rs/sites /srv/ship-rs/src
 sudo install -m 0644 deploy/sites.toml.example /etc/ship-rs/sites.toml
-sudo install -m 0600 deploy/ship-rs.env.example /etc/ship-rs/ship-rs.env
+sudo install -m 0600 deploy/ship.env.example /etc/ship-rs/ship-rs.env
 ```
 
 Edit `/etc/ship-rs/sites.toml` and set `base_domain`, `acme_email`, `admins`, and the sites you actually host. Real site files belong under `/srv/ship-rs`. Leave them out of any git checkout of this repository.
@@ -48,21 +48,21 @@ Generate a cookie key and put it in the env file:
 openssl rand -base64 32
 ```
 
-`SHIP_RS_COOKIE_KEY` is 32 bytes, encoded as standard base64 (padding optional) or as hex. An all-zero key is rejected. The env file stays mode `0600` and owned by root. systemd reads `EnvironmentFile` before it drops privileges. The `ship-rs` user never needs to read that file, and the TOML file never contains a client secret or the cookie key.
+`SHIP_COOKIE_KEY` is 32 bytes, encoded as standard base64 (padding optional) or as hex. An all-zero key is rejected. The env file stays mode `0600` and owned by root. systemd reads `EnvironmentFile` before it drops privileges. The `ship-rs` user never needs to read that file, and the TOML file never contains a client secret or the cookie key.
 
-Fill in the Google and GitHub client id and secret. The callback URLs are in [oauth.md](oauth.md). `SHIP_RS_SESSION_TTL` defaults to `12h` and must sit between `5m` and `168h`.
+Fill in the Google and GitHub client id and secret. The callback URLs are in [oauth.md](oauth.md). `SHIP_SESSION_TTL` defaults to `12h` and must sit between `5m` and `168h`.
 
 ## User and unit
 
 ```sh
 sudo useradd --system --home-dir /var/lib/ship-rs --create-home --shell /usr/bin/nologin ship-rs
-sudo install -m 0644 deploy/ship-rs.service /etc/systemd/system/ship-rs.service
+sudo install -m 0644 deploy/ship.service /etc/systemd/system/ship-rs.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now ship-rs
 sudo systemctl status ship-rs
 ```
 
-The unit runs `ship-rs serve --config /etc/ship-rs/sites.toml` as user `ship-rs`. It listens only on the loopback address in `auth_upstream` (default `127.0.0.1:8091`). `SHIP_RS_LISTEN`, if set, must be that same address.
+The unit runs `ship-rs serve --config /etc/ship-rs/sites.toml` as user `ship-rs`. It listens only on the loopback address in `auth_upstream` (default `127.0.0.1:8091`). `SHIP_LISTEN`, if set, must be that same address.
 
 The unit sets `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, an empty capability set, and `UMask=0077`. `RestrictAddressFamilies` allows `AF_INET`, `AF_INET6`, and `AF_UNIX`. The UNIX family is there so glibc name service can talk to systemd-resolved. `MemoryDenyWriteExecute` is omitted so process startup is not coupled to a filter that rejects the runtime's executable mappings. `ReadOnlyPaths=/etc/ship-rs` covers the manifest.
 
@@ -89,7 +89,7 @@ sudo systemctl reload caddy
 
 ## Install from your own machine
 
-`prebuilt/ship-rs` is the `x86_64-unknown-linux-gnu` release binary (glibc 2.39 or newer). From a checkout on a computer that can already SSH to the VPS:
+`prebuilt/ship` is the `x86_64-unknown-linux-gnu` release binary (glibc 2.39 or newer). From a checkout on a computer that can already SSH to the VPS:
 
 ```sh
 scripts/deploy-remote.sh user@203.0.113.10

@@ -14,7 +14,7 @@ in place. The firewall is not changed, and Caddy is not started.
   -i, --identity   SSH private key
   -h, --help       Show this help
 
-Set SHIP_RS_YES=1 to skip the confirmation prompt.
+Set SHIP_YES=1 to skip the confirmation prompt.
 EOF
 }
 
@@ -64,8 +64,8 @@ if [ -z "$target" ] || [ "$#" -ne 1 ]; then
 fi
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
-binary="$root/prebuilt/ship-rs"
-checksum="$root/prebuilt/ship-rs.sha256"
+binary="$root/prebuilt/ship"
+checksum="$root/prebuilt/ship.sha256"
 if [ ! -f "$binary" ] || [ ! -f "$checksum" ]; then
   echo "missing $binary" >&2
   echo "the prebuilt binary is part of this checkout" >&2
@@ -99,7 +99,7 @@ version_at_least() {
 expected=$(tr -d '[:space:]' < "$checksum")
 actual=$(file_sha256 "$binary")
 if [ "$expected" != "$actual" ]; then
-  echo "prebuilt/ship-rs does not match prebuilt/ship-rs.sha256" >&2
+  echo "prebuilt/ship does not match prebuilt/ship.sha256" >&2
   exit 1
 fi
 
@@ -151,12 +151,12 @@ if [ -t 0 ]; then
       exit 1
       ;;
   esac
-elif [ "${SHIP_RS_YES:-}" != "1" ]; then
-  echo "set SHIP_RS_YES=1 to install without a prompt" >&2
+elif [ "${SHIP_YES:-}" != "1" ]; then
+  echo "set SHIP_YES=1 to install without a prompt" >&2
   exit 2
 fi
 
-remote=$(run_ssh "$target" 'd=$(mktemp -d /tmp/ship-rs-bootstrap.XXXXXX); printf "SHIP_RS_DIR %s\n" "$d"' | awk '$1=="SHIP_RS_DIR" { print $2 }')
+remote=$(run_ssh "$target" 'd=$(mktemp -d /tmp/ship-rs-bootstrap.XXXXXX); printf "SHIP_DIR %s\n" "$d"' | awk '$1=="SHIP_DIR" { print $2 }')
 case "$remote" in
   /tmp/ship-rs-bootstrap.*) ;;
   *)
@@ -169,13 +169,13 @@ echo "Uploading binary and example sites to $remote"
 archive=$(mktemp)
 trap 'rm -f "$archive"' EXIT
 tar -C "$root" -czf "$archive" \
-  prebuilt/ship-rs \
-  prebuilt/ship-rs.sha256 \
+  prebuilt/ship \
+  prebuilt/ship.sha256 \
   examples/public-hello \
   examples/protected-hello \
   examples/spa-demo \
-  deploy/ship-rs.service \
-  deploy/ship-rs.env.example \
+  deploy/ship.service \
+  deploy/ship.env.example \
   deploy/sites.arch.toml \
   scripts/remote-bootstrap.sh
 run_ssh "$target" "tar -xzf - -C '$remote'" < "$archive"

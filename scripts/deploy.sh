@@ -4,7 +4,7 @@ set -eu
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 cd "$root"
 
-config=${1:-${SHIP_RS_CONFIG:-}}
+config=${1:-${SHIP_CONFIG:-}}
 if [ -z "$config" ]; then
   echo "usage: scripts/deploy.sh /etc/ship-rs/sites.toml" >&2
   exit 2

@@ -625,12 +625,12 @@ allow = ["Guest@Example.com"]
                 }
             }
             match k {
-                "SHIP_RS_COOKIE_KEY" => key.clone(),
-                "SHIP_RS_GOOGLE_CLIENT_ID" => "test-google-id".into(),
-                "SHIP_RS_GOOGLE_CLIENT_SECRET" => "test-google-secret".into(),
-                "SHIP_RS_GITHUB_CLIENT_ID" => "test-github-id".into(),
-                "SHIP_RS_GITHUB_CLIENT_SECRET" => "test-github-secret".into(),
-                "SHIP_RS_ALLOW_UNSAFE_OAUTH_OVERRIDES" => "1".into(),
+                "SHIP_COOKIE_KEY" => key.clone(),
+                "SHIP_GOOGLE_CLIENT_ID" => "test-google-id".into(),
+                "SHIP_GOOGLE_CLIENT_SECRET" => "test-google-secret".into(),
+                "SHIP_GITHUB_CLIENT_ID" => "test-github-id".into(),
+                "SHIP_GITHUB_CLIENT_SECRET" => "test-github-secret".into(),
+                "SHIP_ALLOW_UNSAFE_OAUTH_OVERRIDES" => "1".into(),
                 _ => String::new(),
             }
         })
@@ -782,7 +782,7 @@ allow = ["Guest@Example.com"]
         let idp = crate::testidp::Google::start("test-google-id", "test-google-secret", "Guest@Example.com", true).await;
         let (_dir, path) = write_config(sample_toml());
         let store = config::Store::open(&path).unwrap();
-        let svc = Service::new(store, test_secrets(&[("SHIP_RS_OIDC_ISSUER", &idp.issuer)]));
+        let svc = Service::new(store, test_secrets(&[("SHIP_OIDC_ISSUER", &idp.issuer)]));
         let ret = "https://notes.example.com/docs?x=1";
         let req = Request::builder()
             .uri(format!("/login/google?return={}", query_escape(ret)))

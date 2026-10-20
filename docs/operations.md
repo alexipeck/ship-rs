@@ -8,7 +8,7 @@ ship-rs generate --config /etc/ship-rs/sites.toml
 ship-rs deploy --config /etc/ship-rs/sites.toml --reload
 ```
 
-`SHIP_RS_CONFIG` fills in `--config` when the flag is absent. `--caddyfile` and `--hub` override the paths in the manifest for one invocation.
+`SHIP_CONFIG` fills in `--config` when the flag is absent. `--caddyfile` and `--hub` override the paths in the manifest for one invocation.
 
 ## Manifest
 
@@ -102,6 +102,6 @@ sudo ship-rs deploy --config /etc/ship-rs/sites.toml --reload
 
 Restart `ship-rs` when the binary or the env file changes. Reload Caddy when the Caddyfile changes. An allowlist-only edit needs neither.
 
-To rotate the cookie key, set `SHIP_RS_COOKIE_KEY_PREVIOUS` to the old value, put the new value in `SHIP_RS_COOKIE_KEY`, and restart. Existing sessions still open. New sessions are sealed with the new key. Remove the previous key on a later restart.
+To rotate the cookie key, set `SHIP_COOKIE_KEY_PREVIOUS` to the old value, put the new value in `SHIP_COOKIE_KEY`, and restart. Existing sessions still open. New sessions are sealed with the new key. Remove the previous key on a later restart.
 
 `ship-rs validate` prints the domain, ports, auth origin, admin addresses, and each site's access mode and allowlist size. It does not print the allowlist itself.

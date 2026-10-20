@@ -40,8 +40,8 @@ if [ "$oldest" != "2.39" ]; then
   exit 1
 fi
 
-expected=$(tr -d '[:space:]' < "$bundle/prebuilt/ship-rs.sha256")
-actual=$(sha256sum "$bundle/prebuilt/ship-rs" | awk '{ print $1 }')
+expected=$(tr -d '[:space:]' < "$bundle/prebuilt/ship.sha256")
+actual=$(sha256sum "$bundle/prebuilt/ship" | awk '{ print $1 }')
 if [ "$expected" != "$actual" ]; then
   echo "binary checksum mismatch" >&2
   exit 1
@@ -49,7 +49,7 @@ fi
 
 pacman -S --needed --noconfirm caddy rsync openssl curl
 
-install -m 0755 "$bundle/prebuilt/ship-rs" /usr/local/bin/ship-rs
+install -m 0755 "$bundle/prebuilt/ship" /usr/local/bin/ship-rs
 
 if ! id ship-rs >/dev/null 2>&1; then
   nologin=$(command -v nologin || true)
@@ -95,9 +95,9 @@ if [ ! -f /etc/ship-rs/ship-rs.env ]; then
   umask 077
   awk -v key="$key" '
     BEGIN { FS = OFS = "=" }
-    $1 == "SHIP_RS_COOKIE_KEY" && $2 == "" { $2 = key }
+    $1 == "SHIP_COOKIE_KEY" && $2 == "" { $2 = key }
     { print }
-  ' "$bundle/deploy/ship-rs.env.example" > /etc/ship-rs/ship-rs.env
+  ' "$bundle/deploy/ship.env.example" > /etc/ship-rs/ship-rs.env
   chmod 0600 /etc/ship-rs/ship-rs.env
   chown root:root /etc/ship-rs/ship-rs.env
   echo "wrote /etc/ship-rs/ship-rs.env with a new cookie key"
@@ -105,7 +105,7 @@ else
   echo "keeping existing /etc/ship-rs/ship-rs.env"
 fi
 
-install -m 0644 "$bundle/deploy/ship-rs.service" /etc/systemd/system/ship-rs.service
+install -m 0644 "$bundle/deploy/ship.service" /etc/systemd/system/ship-rs.service
 systemctl daemon-reload
 systemctl enable ship-rs
 if ! systemctl restart ship-rs; then

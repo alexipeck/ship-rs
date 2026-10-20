@@ -42,14 +42,14 @@ if [ ! -f /etc/ship-rs/ship-rs.env ]; then
   umask 077
   awk -v key="$key" '
     BEGIN { FS = OFS = "=" }
-    $1 == "SHIP_RS_COOKIE_KEY" && $2 == "" { $2 = key }
+    $1 == "SHIP_COOKIE_KEY" && $2 == "" { $2 = key }
     { print }
-  ' deploy/ship-rs.env.example > /etc/ship-rs/ship-rs.env
+  ' deploy/ship.env.example > /etc/ship-rs/ship-rs.env
   chmod 0600 /etc/ship-rs/ship-rs.env
   chown root:root /etc/ship-rs/ship-rs.env
 fi
 
-install -m 0644 deploy/ship-rs.service /etc/systemd/system/ship-rs.service
+install -m 0644 deploy/ship.service /etc/systemd/system/ship-rs.service
 systemctl daemon-reload
 
 echo "installed $(/usr/local/bin/ship-rs version)"

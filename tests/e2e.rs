@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use base64::Engine;
-use ship_rs::identity;
-use ship_rs::session::{self, KeyRing, Session};
+use ship::identity;
+use ship::session::{self, KeyRing, Session};
 
 const HTTP_PORT: u16 = 19080;
 const HTTPS_PORT: u16 = 19443;
@@ -38,13 +38,13 @@ async fn caddy_forward_auth_and_mocked_oauth() {
     let data = dir.path().join("caddy-data");
     fs::create_dir_all(&data).unwrap();
 
-    let google = ship_rs::testidp::Google::start("e2e-google", "e2e-google-secret", "Guest@Example.com", true).await;
-    let github = ship_rs::testidp::GitHub::start(
+    let google = ship::testidp::Google::start("e2e-google", "e2e-google-secret", "Guest@Example.com", true).await;
+    let github = ship::testidp::GitHub::start(
         "e2e-github",
         "e2e-github-secret",
         vec![
-            ship_rs::testidp::Email { email: "other@example.com".into(), primary: false, verified: true },
-            ship_rs::testidp::Email { email: "Owner@Example.com".into(), primary: true, verified: true },
+            ship::testidp::Email { email: "other@example.com".into(), primary: false, verified: true },
+            ship::testidp::Email { email: "Owner@Example.com".into(), primary: true, verified: true },
         ],
     )
     .await;
@@ -79,17 +79,17 @@ async fn caddy_forward_auth_and_mocked_oauth() {
         &bin,
         &["serve", "--config", cfg_path.to_str().unwrap()],
         &[
-            ("SHIP_RS_COOKIE_KEY", key.as_str()),
-            ("SHIP_RS_GOOGLE_CLIENT_ID", "e2e-google"),
-            ("SHIP_RS_GOOGLE_CLIENT_SECRET", "e2e-google-secret"),
-            ("SHIP_RS_GITHUB_CLIENT_ID", "e2e-github"),
-            ("SHIP_RS_GITHUB_CLIENT_SECRET", "e2e-github-secret"),
-            ("SHIP_RS_ALLOW_UNSAFE_OAUTH_OVERRIDES", "1"),
-            ("SHIP_RS_OIDC_ISSUER", google.issuer.as_str()),
-            ("SHIP_RS_GITHUB_AUTH_URL", github.auth_url.as_str()),
-            ("SHIP_RS_GITHUB_TOKEN_URL", github.token_url.as_str()),
-            ("SHIP_RS_GITHUB_EMAILS_URL", github.emails_url.as_str()),
-            ("SHIP_RS_LISTEN", &format!("127.0.0.1:{AUTH_PORT}")),
+            ("SHIP_COOKIE_KEY", key.as_str()),
+            ("SHIP_GOOGLE_CLIENT_ID", "e2e-google"),
+            ("SHIP_GOOGLE_CLIENT_SECRET", "e2e-google-secret"),
+            ("SHIP_GITHUB_CLIENT_ID", "e2e-github"),
+            ("SHIP_GITHUB_CLIENT_SECRET", "e2e-github-secret"),
+            ("SHIP_ALLOW_UNSAFE_OAUTH_OVERRIDES", "1"),
+            ("SHIP_OIDC_ISSUER", google.issuer.as_str()),
+            ("SHIP_GITHUB_AUTH_URL", github.auth_url.as_str()),
+            ("SHIP_GITHUB_TOKEN_URL", github.token_url.as_str()),
+            ("SHIP_GITHUB_EMAILS_URL", github.emails_url.as_str()),
+            ("SHIP_LISTEN", &format!("127.0.0.1:{AUTH_PORT}")),
         ],
         &gate_log,
     );

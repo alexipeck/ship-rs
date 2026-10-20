@@ -22,7 +22,7 @@ The session cookie is `ship-rs_session`. It is `HttpOnly`, `Secure`, `SameSite=L
 
 The OAuth state cookie is `__Host-ship-rs_oauth`. It is host-only (no `Domain`), `Path=/`, `Secure`, `HttpOnly`, `SameSite=Lax`, and it lives for 10 minutes. It holds the state, the PKCE verifier, the nonce, the provider, and the return URL. State is compared in constant time. The verifier never goes in the query string.
 
-Both jars are keyed from `SHIP_RS_COOKIE_KEY` (32 bytes, base64 or hex). The process refuses an all-zero key. `SHIP_RS_COOKIE_KEY_PREVIOUS` opens old cookies and is never used to seal a new one.
+Both jars are keyed from `SHIP_COOKIE_KEY` (32 bytes, base64 or hex). The process refuses an all-zero key. `SHIP_COOKIE_KEY_PREVIOUS` opens old cookies and is never used to seal a new one.
 
 Because `Domain` is the apex, the browser sends the session cookie to every subdomain. `HttpOnly` stops page scripts from reading it. Do not enable CORS on a protected site, and do not host untrusted content on a subdomain of the same apex: that origin can already send the cookie to Caddy. A sibling subdomain can also submit the sign-out form, because logout accepts any HTTPS origin under the base domain. That signs the browser out. It does not reveal the cookie or grant access.
 
@@ -38,7 +38,7 @@ There is no shared secret between Caddy and `/check`. The trust boundary is the 
 
 Login does not start by itself when someone opens a protected site. The 401 page links to the auth host. The return URL is checked again when the flow starts and again when it finishes. The callback URL is the configured auth origin plus `/callback/google` or `/callback/github`. A `Host` header cannot move the token exchange.
 
-Provider HTTP redirects are limited and must stay on the same host. `SHIP_RS_ALLOW_UNSAFE_OAUTH_OVERRIDES` is off unless set to `1`. Leave it off.
+Provider HTTP redirects are limited and must stay on the same host. `SHIP_ALLOW_UNSAFE_OAUTH_OVERRIDES` is off unless set to `1`. Leave it off.
 
 Auth pages send `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`, plus `X-Frame-Options: DENY`, `nosniff`, `no-referrer`, and `Cache-Control: no-store`. Gate pages use the same policy with `form-action` pointed at the auth origin. The pages contain no meta refresh and no script redirect.
 

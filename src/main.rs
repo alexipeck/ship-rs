@@ -4,13 +4,13 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
-use ship_rs::config::{self, Config};
-use ship_rs::deploy;
-use ship_rs::envfile;
-use ship_rs::generate;
-use ship_rs::secrets;
-use ship_rs::server;
-use ship_rs::version;
+use ship::config::{self, Config};
+use ship::deploy;
+use ship::envfile;
+use ship::generate;
+use ship::secrets;
+use ship::server;
+use ship::version;
 
 #[derive(Parser)]
 #[command(name = "ship-rs", disable_help_flag = true, disable_version_flag = true)]
@@ -71,7 +71,7 @@ async fn main() -> ExitCode {
         _ => {}
     }
     if args[0] == "serve" || args[0] == "generate" || args[0] == "deploy" || args[0] == "validate" {
-        let config_from_env = env::var("SHIP_RS_CONFIG").unwrap_or_default();
+        let config_from_env = env::var("SHIP_CONFIG").unwrap_or_default();
         if !config_from_env.is_empty() && !args.iter().any(|a| a == "--config" || a.starts_with("--config=")) {
             args.insert(1, "--config".into());
             args.insert(2, config_from_env);
@@ -128,7 +128,7 @@ async fn serve(config_path: &str, env_file: &str) -> Result<(), String> {
         envfile::load(Path::new(env_file)).map_err(|e| e.to_string())?;
     }
     if config_path.trim().is_empty() {
-        return Err("set --config or SHIP_RS_CONFIG".into());
+        return Err("set --config or SHIP_CONFIG".into());
     }
     let sec = secrets::from_env(|k| env::var(k).unwrap_or_default())?;
     if sec.allow_unsafe {
@@ -142,7 +142,7 @@ async fn serve(config_path: &str, env_file: &str) -> Result<(), String> {
     let addr = if sec.listen.is_empty() {
         cfg.auth_upstream.clone()
     } else if sec.listen != cfg.auth_upstream {
-        return Err(format!("SHIP_RS_LISTEN {} does not match auth_upstream {}", sec.listen, cfg.auth_upstream));
+        return Err(format!("SHIP_LISTEN {} does not match auth_upstream {}", sec.listen, cfg.auth_upstream));
     } else {
         sec.listen.clone()
     };
@@ -201,7 +201,7 @@ fn validate_cmd(config_path: &str) -> Result<(), String> {
 
 fn must_config(path: &str, caddyfile: &str, hub: &str) -> Result<Config, String> {
     if path.trim().is_empty() {
-        return Err("set --config or SHIP_RS_CONFIG".into());
+        return Err("set --config or SHIP_CONFIG".into());
     }
     let mut cfg = config::load(Path::new(path))?;
     if !caddyfile.is_empty() {
