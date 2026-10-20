@@ -1,0 +1,35 @@
+[Unit]
+Description=Sitegate authentication service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sitegate
+Group=sitegate
+EnvironmentFile=/etc/sitegate/sitegate.env
+ExecStart=/usr/local/bin/sitegate serve --config /etc/sitegate/sites.toml
+Restart=on-failure
+RestartSec=2s
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictRealtime=true
+# AF_UNIX lets glibc NSS talk to systemd-resolved on Arch. MemoryDenyWriteExecute is omitted so the unit stays conservative for the process startup path.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+ReadOnlyPaths=/etc/sitegate
+
+[Install]
+WantedBy=multi-user.target

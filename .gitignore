@@ -1,0 +1,9 @@
+/target/
+/bin/
+/examples/dist/
+/agent-tools/
+*.exe
+/caddy
+/tmp/
+*.out
+coverage.*

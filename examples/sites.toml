@@ -1,0 +1,46 @@
+# Example installation file shipped with the repo.
+# Paths are relative to this file. A real VPS uses /etc/sitegate/sites.toml
+# and does not point source or deploy at this repository.
+# Secrets do not belong here.
+
+base_domain = "example.com"
+acme_email = "admin@example.com"
+tls = "internal"
+http_port = 18080
+https_port = 18443
+auth_upstream = "127.0.0.1:8091"
+caddyfile = "dist/Caddyfile"
+caddy_admin = "off"
+preview_addr = "127.0.0.1:8742"
+
+admins = ["owner@example.com"]
+
+[hub]
+title = "Example sites"
+deploy = "dist/hub"
+
+[[sites]]
+slug = "hello"
+title = "Public hello"
+source = "public-hello"
+deploy = "dist/hello"
+subdomain = "hello"
+public = true
+
+[[sites]]
+slug = "notes"
+title = "Protected hello"
+source = "protected-hello"
+deploy = "dist/notes"
+subdomain = "notes"
+public = false
+allow = ["guest@example.com"]
+
+[[sites]]
+slug = "spa"
+title = "SPA demo"
+source = "spa-demo"
+deploy = "dist/spa"
+subdomain = "spa"
+public = true
+spa = true
