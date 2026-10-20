@@ -47,7 +47,43 @@ if [ "$expected" != "$actual" ]; then
   exit 1
 fi
 
-pacman -S --needed --noconfirm caddy rsync openssl curl
+pacman_busy() {
+  if ! command -v pgrep >/dev/null 2>&1; then
+    ps -C pacman >/dev/null 2>&1
+    return
+  fi
+  pgrep -x pacman >/dev/null 2>&1 && return 0
+  pgrep -x pamac >/dev/null 2>&1 && return 0
+  pgrep -x pamac-daemon >/dev/null 2>&1 && return 0
+  pgrep -x packagekitd >/dev/null 2>&1 && return 0
+  pgrep -x yay >/dev/null 2>&1 && return 0
+  pgrep -x paru >/dev/null 2>&1 && return 0
+  return 1
+}
+
+lock=/var/lib/pacman/db.lck
+waited=0
+while [ -e "$lock" ]; do
+  if pacman_busy; then
+    waited=$((waited + 1))
+    if [ "$waited" -gt 60 ]; then
+      echo "pacman is still running, so $lock is held." >&2
+      echo "Wait until it finishes, then re-run scripts/deploy-remote.sh." >&2
+      exit 1
+    fi
+    echo "waiting for the other package manager to finish"
+    sleep 2
+    continue
+  fi
+  echo "removing stale pacman lock $lock"
+  rm -f "$lock"
+done
+
+if ! pacman -S --needed --noconfirm caddy rsync openssl curl; then
+  echo "pacman could not install caddy, rsync, openssl, and curl." >&2
+  echo "If no package manager is running, remove $lock and re-run this installer." >&2
+  exit 1
+fi
 
 install -m 0755 "$bundle/prebuilt/ship" /usr/local/bin/ship-rs
 
